@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
+import numpy.typing as npt
 
 
 class YatzyPlayer(ABC):
@@ -29,13 +30,17 @@ class YatzyPlayer(ABC):
     NUMS = ['Ones', 'Twos', 'Threes', 'Fours', 'Fives', 'Sixes']
     NUM_DICE = 5
     NUM_ENTRIES = len(scoreboard)
-    bonus = 0
+    bonus = UNPLAYED_VAL
 
     def __init__(self) -> None:
         self.dice = np.zeros(self.NUM_DICE, dtype=int)
 
-    def throw_dice(self, ind_throw):
-        pass
+    def throw_dice(
+        self,
+        ind_throw: list[int] | range | npt.NDArray[np.int_]
+    ) -> None:
+        new_vals = np.random.randint(1, 7, [len(ind_throw)])
+        self.dice[ind_throw] = new_vals
 
     @abstractmethod
     def select_dice_to_throw(self) -> list[int]:
@@ -66,7 +71,7 @@ class YatzyPlayer(ABC):
 
         # Upper section
         upper_scores = (dots * counts)
-        upper_scores[upper_scores == 0] = self.UNPLAYED_VAL
+        upper_scores[upper_scores == 0] = self.SCRATCH_VAL
         for dot in dots:
             curr_points[self.NUMS[dot - 1]] = int(upper_scores[dot - 1])
 
@@ -122,7 +127,7 @@ class YatzyPlayer(ABC):
             if 6 in raw_dots and 1 not in raw_dots:
                 curr_points['Big Straight'] = 20
 
-        # Needs to not be able to chose things already played
+        # Needs to be unable to choose things already played
         # Is this super slow? Might need some numpier solution
         for key, value in self.scoreboard.items():
             if value != self.UNPLAYED_VAL:
@@ -133,5 +138,38 @@ class YatzyPlayer(ABC):
     def play_turn(self):
         pass
 
-    def check_bonus(self):
-        pass
+    def check_bonus(self) -> int:
+        upper_score, upper_is_full = self.get_upper_score()
+        if upper_score >= 63:  # This number IS magical
+            self.bonus = self.BONUS_VAL
+        elif upper_is_full:
+            self.bonus = self.SCRATCH_VAL
+        return self.bonus
+
+    def get_upper_score(self) -> tuple[int, bool]:
+        upper_score = sum([
+            val for num in self.NUMS
+            if (val := self.scoreboard[num]) != self.SCRATCH_VAL
+            and val != self.UNPLAYED_VAL
+        ])
+
+        upper_is_full = self.UNPLAYED_VAL not in [
+            val for val in [self.scoreboard[num] for num in self.NUMS]
+        ]
+        return upper_score, upper_is_full
+
+    def get_curr_legal_options(self) -> list[str]:
+        self.curr_legal_options = [
+            key for key, possible_score in self.curr_possible_scores.items()
+            # the possible score will be SCRATCH_VAL if the current scoreboard
+            # entry already is taken
+            if possible_score != self.SCRATCH_VAL
+        ]
+        return self.curr_legal_options
+
+    def get_scratch_options(self) -> list[str]:
+        self.scratch_options = [
+            key for key, score in self.scoreboard.items()
+            if score == self.UNPLAYED_VAL
+        ]
+        return self.scratch_options
