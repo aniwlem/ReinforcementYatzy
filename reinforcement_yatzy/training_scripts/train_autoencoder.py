@@ -7,8 +7,10 @@ from torch import nn
 from torch import optim
 from torch.utils.data import Dataset, DataLoader
 
-from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder, ScoreboardDecoder, ScoreboardAutoencoder
-from reinforcement_yatzy.yatzy.empty_training_player import TrainingYatzyPlayer
+from ..nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder, ScoreboardDecoder, ScoreboardAutoencoder
+# from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder
+from ..yatzy.empty_training_player import TrainingYatzyPlayer
+# from reinforcement_yatzy.yatzy.empty_training_player import TrainingYatzyPlayer
 
 
 class ScoreboardDataset(Dataset):
