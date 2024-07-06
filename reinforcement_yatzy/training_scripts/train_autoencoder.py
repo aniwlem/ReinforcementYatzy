@@ -1,39 +1,16 @@
 import argparse
 from pathlib import Path
 
-import numpy as np
+import pandas as pd
 import torch
 from torch import nn
 from torch import optim
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from ..nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder, ScoreboardDecoder, ScoreboardAutoencoder
-# from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder
-from ..yatzy.empty_training_player import TrainingYatzyPlayer
-# from reinforcement_yatzy.yatzy.empty_training_player import TrainingYatzyPlayer
-
-
-class ScoreboardDataset(Dataset):
-    def __init__(self, buffer_size: int, p_replace: float = 0) -> None:
-        super().__init__()
-        self.player = TrainingYatzyPlayer()
-        self.buffer_size = buffer_size
-        self.buffer = [self._get_scoreboard() for _ in range(self.buffer_size)]
-        self.p_replace = p_replace
-
-    def _get_scoreboard(self):
-        self.player.throw_dice(range(self.player.NUM_DICE))
-        self.player.check_points_of_dice()
-
-        return torch.Tensor(list(self.player.curr_possible_scores.values()))
-
-    def __len__(self):
-        return self.buffer_size
-
-    def __getitem__(self, index) -> torch.Tensor:
-        if np.random.rand() < self.p_replace:
-            self.buffer[index] = self._get_scoreboard()
-        return self.buffer[index]
+from reinforcement_yatzy.scoreboard_dataset.scoreboard_dataset import ScoreboardDataset
+from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder, ScoreboardDecoder, ScoreboardAutoencoder
+from reinforcement_yatzy.yatzy.empty_training_player import TrainingYatzyPlayer
 
 
 def setup_autoencoder(encoder_dims: list[int], latent_dim: int) -> ScoreboardAutoencoder:
@@ -67,26 +44,29 @@ def train_autoencoder(
     optimizer = optim.Adam(autoencoder.parameters(), lr=1e-3)
 
     for epoch in range(epochs):
-        for batch in data_loader:
-            outputs = autoencoder(batch)
-            optimizer.zero_grad()
-            loss = criterion(outputs, batch)
-            loss.backward()
-            optimizer.step()
-        if epoch % 10 == 0:
-            print(f'Epoch {epoch} loss: {loss:.3e}')
+        with tqdm(data_loader, unit='batch') as tepoch:
+            for batch in tepoch:
+                tepoch.set_description(f'Epoch {epoch}')
+
+                optimizer.zero_grad()
+                outputs = autoencoder(batch)
+                loss = criterion(outputs, batch)
+                loss.backward()
+                optimizer.step()
+
+                tepoch.set_postfix(loss=loss.item())
     return autoencoder
 
 
-def main(save_path: Path):
+def main(save_path: Path, dataset_path: Path, epochs: int):
     encoder_dims = [32, 16, 8]
     latent_dim = 4
     autoencoder = setup_autoencoder(encoder_dims, latent_dim)
 
-    dataset = ScoreboardDataset(buffer_size=1024, p_replace=0.1)
+    dataset_df = pd.read_csv(dataset_path)
+    dataset = ScoreboardDataset(dataset_df)
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
-    epochs = 1001
     train_autoencoder(autoencoder, dataloader, epochs)
     torch.save(autoencoder.encoder.state_dict(), save_path)
     print(f'Saved weights to {save_path}')
@@ -105,6 +85,10 @@ if __name__ == '__main__':
         description="Train a neural network and save the weights.")
     parser.add_argument("save_path", type=Path,
                         help="Path to save the model weights.")
+    parser.add_argument("dataset_path", type=Path,
+                        help="Path to the scoreboard dataset")
+    parser.add_argument("epochs", type=int,
+                        help="Number of epochs to train")
     args = parser.parse_args()
 
-    main(args.save_path)
+    main(**vars(args))
