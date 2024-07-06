@@ -3,7 +3,7 @@ import numpy as np
 import numpy.typing as npt
 
 
-class YatzyPlayer(ABC):
+class ABCYatzyPlayer(ABC):
     UNPLAYED_VAL = -1
     SCRATCH_VAL = -2
     BONUS_VAL = 50
