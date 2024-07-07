@@ -10,6 +10,7 @@ class ScoreboardEncoder(nn.Module):
         latent_dim: int,
     ) -> None:
         super().__init__()
+        self.latent_dim = latent_dim
 
         mlp_layers = ([
             nn.Linear(
