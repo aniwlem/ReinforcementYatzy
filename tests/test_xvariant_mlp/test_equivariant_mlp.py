@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch import nn
 from reinforcement_yatzy.nn_models.xvariant_mlp.base_models.equivariant_mlp import EquivariantMLP
+from reinforcement_yatzy.nn_models.xvariant_mlp.pool_type_enum import PoolType
 
 
 class TestEquivariantLayer:
@@ -13,12 +14,12 @@ class TestEquivariantLayer:
     mlp_channels = [11, 13, 17]
 
     @pytest.fixture
-    def sum_mlp(self):
+    def avg_mlp(self):
         return EquivariantMLP(
             n_elems=self.n_elems,
             embed_dim=self.embed_dim,
             mlp_channels=self.mlp_channels,
-            pool_func=nn.AvgPool1d(self.n_elems)
+            pool_type=PoolType.AVG,
         )
 
     @pytest.fixture
@@ -27,12 +28,12 @@ class TestEquivariantLayer:
             n_elems=self.n_elems,
             embed_dim=self.embed_dim,
             mlp_channels=self.mlp_channels,
-            pool_func=nn.MaxPool1d(self.n_elems)
+            pool_type=PoolType.MAX,
         )
 
     @pytest.fixture
-    def model_list(self, sum_mlp,  maxpool_mlp):
-        return [sum_mlp,  maxpool_mlp]
+    def model_list(self, avg_mlp,  maxpool_mlp):
+        return [avg_mlp,  maxpool_mlp]
 
     @pytest.mark.parametrize('batch_size', range(1, 10))
     def test_single_forward(self, batch_size: int, model_list: list[nn.Module]):
@@ -63,6 +64,7 @@ class TestEquivariantLayer:
         ])
         for curr_layer in model_list:
             results = curr_layer(batch)
+
             perms = list(permutations(range(self.n_elems)))
             for perm in perms:
                 assert np.all(

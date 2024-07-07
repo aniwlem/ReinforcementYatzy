@@ -4,7 +4,9 @@ import pytest
 import numpy as np
 import torch
 from torch import nn
+
 from reinforcement_yatzy.nn_models.xvariant_mlp.base_models.equivariant_layer import EquivariantLayer
+from reinforcement_yatzy.nn_models.xvariant_mlp.pool_type_enum import PoolType
 
 
 class TestEquivariantLayer:
@@ -14,13 +16,13 @@ class TestEquivariantLayer:
     n_output_channels = 11
 
     @pytest.fixture
-    def sum_layer(self):
+    def avg_layer(self):
         return EquivariantLayer(
             n_elems=self.n_elems,
             embed_dim=self.embed_dim,
             n_input_channels=self.n_input_channels,
             n_output_channels=self.n_output_channels,
-            pool_func=nn.AvgPool1d(self.n_elems)
+            pool_type=PoolType.AVG,
         )
 
     @pytest.fixture
@@ -30,12 +32,12 @@ class TestEquivariantLayer:
             embed_dim=self.embed_dim,
             n_input_channels=self.n_input_channels,
             n_output_channels=self.n_output_channels,
-            pool_func=nn.MaxPool1d(self.n_elems)
+            pool_type=PoolType.MAX,
         )
 
     @pytest.fixture
-    def model_list(self, sum_layer,  maxpool_layer):
-        return [sum_layer,  maxpool_layer]
+    def model_list(self, avg_layer,  maxpool_layer):
+        return [avg_layer,  maxpool_layer]
 
     @pytest.mark.parametrize('batch_size', range(1, 10))
     def test_single_forward(self, batch_size: int, model_list: list[nn.Module]):

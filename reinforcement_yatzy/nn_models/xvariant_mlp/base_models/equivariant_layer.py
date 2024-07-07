@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 
+from reinforcement_yatzy.nn_models.xvariant_mlp.pool_type_enum import PoolType
+
 
 class EquivariantLayer(nn.Module):
     '''
@@ -15,7 +17,7 @@ class EquivariantLayer(nn.Module):
         embed_dim: int,
         n_input_channels: int,
         n_output_channels: int,
-        pool_func: nn.Module,
+        pool_type: PoolType,
     ) -> None:
         super().__init__()
 
@@ -30,7 +32,13 @@ class EquivariantLayer(nn.Module):
         self.gamma = nn.Parameter(torch.rand([
             n_input_channels, n_output_channels
         ]))
-        self.pool_func = pool_func
+
+        if pool_type == PoolType.AVG:
+            self.pool_func = nn.AvgPool1d(n_elems)
+        elif pool_type == PoolType.MAX:
+            self.pool_func = nn.MaxPool1d(n_elems)
+        else:
+            raise ValueError(f'Unsupported pooling type{pool_type}')
 
     def forward(self, batch: torch.Tensor) -> torch.Tensor:
         '''
