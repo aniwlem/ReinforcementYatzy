@@ -49,14 +49,17 @@ class DiceSelectionPooling(nn.Module):
         '''
         if len(batch.shape) == 3:
             batch.unsqueeze(0)
+
         batch_size, n_channels, n_dice, embed_dim = batch.shape
+        # Pool away embedding dimension
         embed_batch = batch.reshape(
-            [batch_size * n_channels * n_dice, embed_dim])
+            [batch_size * n_channels, n_dice, embed_dim])
         embed_pooled = self.embed_pooling(embed_batch).reshape([
             batch_size, n_channels, n_dice
         ])
 
         # need to get channel dim last
         channel_batch = embed_pooled.permute([0, 2, 1])
+        # Pool away channel dimension
         channel_pooled = self.channel_pooling(channel_batch).squeeze()
         return channel_pooled

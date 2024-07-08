@@ -55,9 +55,13 @@ class DiceSelector(nn.Module):
 
     def forward(self, dices: torch.Tensor, scoreboards: torch.Tensor) -> torch.Tensor:
         '''
+        input:
         dices: shape[batch_size, n_dice]
         scoreboards: shape[batch_size, n_entries]
+
+        output: shape[batch_size, n_dice]
         '''
+        # Of course n_dice could be 1 as well, but that will never happen
         if len(dices.shape) == 1:
             dices.unsqueeze(0)
             scoreboards.unsqueeze(0)
@@ -81,8 +85,7 @@ class DiceSelector(nn.Module):
         # must be pooled over in some manner.
         results = self.selection_pool(mlped_batch)
 
-        # NOTE: Decided not to do this but keep comment FYI
-        # NOTE: this might be stupid, since durig playing, the batch size is one,
-        # and the desired shape is [num_dice], not [1, num_dice]
+        if len(results.shape) == 1:
+            results = results.unsqueeze(0)
 
         return results

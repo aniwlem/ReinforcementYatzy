@@ -44,13 +44,10 @@ class TestDiceSelector:
         dices = torch.rand([batch_size, self.n_dice])
         entries = torch.rand([batch_size, self.n_entries])
 
-        if batch_size == 1:
-            assert list(dice_selector(dices, entries).shape) == [self.n_dice]
-        else:
-            assert list(dice_selector(dices, entries).shape) == [
-                batch_size,
-                self.n_dice
-            ]
+        assert list(dice_selector(dices, entries).shape) == [
+            batch_size,
+            self.n_dice
+        ]
 
     @pytest.mark.parametrize('batch_size', range(1, 10))
     def test_equivariance(self, dice_selector: DiceSelector, batch_size: int):
@@ -60,23 +57,8 @@ class TestDiceSelector:
         results = dice_selector(dices, entries)
         perms = list(permutations(range(self.n_dice)))
 
-        if batch_size == 1:
-            print(dices)
-            print(dices.unsqueeze(0)[0, perms[0]])
-            print(entries.unsqueeze(0))
-            print(dice_selector(
-                dices.unsqueeze(0)[0, perms[0]],
-                entries.unsqueeze(0))
+        for perm in perms:
+            assert np.all(
+                (dice_selector(dices[:, perm], entries)
+                    == results[:, perm]).numpy
             )
-
-            for perm in perms:
-                assert np.all(
-                    (dice_selector(dices.unsqueeze(0)[:, perm], entries.unsqueeze(0))
-                        == results.unsqueeze(0)[:, perm]).numpy
-                )
-        else:
-            for perm in perms:
-                assert np.all(
-                    (dice_selector(dices[:, perm], entries)
-                        == results[:, perm]).numpy
-                )
