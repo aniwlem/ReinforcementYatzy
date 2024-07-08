@@ -33,12 +33,7 @@ class EquivariantLayer(nn.Module):
             n_input_channels, n_output_channels
         ]))
 
-        if pool_type == PoolType.AVG:
-            self.pool_func = nn.AvgPool1d(n_elems)
-        elif pool_type == PoolType.MAX:
-            self.pool_func = nn.MaxPool1d(n_elems)
-        else:
-            raise ValueError(f'Unsupported pooling type{pool_type}')
+        self.pool_func = pool_type.layer(n_elems)
 
     def forward(self, batch: torch.Tensor) -> torch.Tensor:
         '''

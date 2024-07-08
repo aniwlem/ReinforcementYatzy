@@ -27,19 +27,8 @@ class DiceSelectionPooling(nn.Module):
     ) -> None:
         super().__init__()
 
-        if channel_pooling == PoolType.AVG:
-            self.channel_pooling = nn.AvgPool1d(n_channels)
-        elif channel_pooling == PoolType.MAX:
-            self.channel_pooling = nn.MaxPool1d(n_channels)
-        else:
-            raise ValueError(f'Unsupported pooling type{channel_pooling}')
-
-        if embed_pooling == PoolType.AVG:
-            self.embed_pooling = nn.AvgPool1d(embed_dim)
-        elif embed_pooling == PoolType.MAX:
-            self.embed_pooling = nn.MaxPool1d(embed_dim)
-        else:
-            raise ValueError(f'Unsupported pooling type{embed_pooling}')
+        self.channel_pooling = channel_pooling.layer(n_channels)
+        self.embed_pooling = embed_pooling.layer(embed_dim)
 
     def forward(self, batch: torch.Tensor) -> torch.Tensor:
         '''
