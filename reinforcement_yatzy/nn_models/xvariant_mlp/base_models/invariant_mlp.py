@@ -9,7 +9,6 @@ import torch
 
 @dataclass
 class InvariantPoolingParams:
-    channel_pooling: PoolType
     embed_pooling: PoolType
     elem_pooling: PoolType
 
@@ -26,13 +25,11 @@ class InvariantPooling(nn.Module):
         embed_dim: int,
         seq_len: int,
         n_channels: int,
-        channel_pooling: PoolType,
         embed_pooling: PoolType,
         elem_pooling: PoolType
     ) -> None:
         super().__init__()
 
-        self.channel_pooling = channel_pooling.layer(n_channels)
         self.embed_pooling = embed_pooling.layer(embed_dim)
         self.elem_pooling = elem_pooling.layer(seq_len)
 
@@ -42,7 +39,7 @@ class InvariantPooling(nn.Module):
 
         outputs: shape[batch_size]
 
-        Pooling is done in order of atomicity: embeddings, elements, channels
+        Pooling is done in order of atomicity: embeddings, then elements
         '''
 
         if len(batch.shape) == 3:
@@ -58,10 +55,8 @@ class InvariantPooling(nn.Module):
 
         # Pool away element dimension
         elem_pooled = self.elem_pooling(embed_pooled).squeeze(-1)
-        # Pool away channel dimension
-        channel_pooled = self.channel_pooling(elem_pooled).squeeze(-1)
 
-        return channel_pooled
+        return elem_pooled
 
 
 class InvariantMLP(EquivariantMLP):
@@ -102,7 +97,6 @@ class InvariantMLP(EquivariantMLP):
             embed_dim=embed_dim,
             seq_len=n_elems,
             n_channels=mlp_channels[-1],
-            channel_pooling=invarintifier_pool_types.channel_pooling,
             embed_pooling=invarintifier_pool_types.embed_pooling,
             elem_pooling=invarintifier_pool_types.elem_pooling,
         )
@@ -114,6 +108,8 @@ class InvariantMLP(EquivariantMLP):
         outputs: shape[batch_size, output_channels, n_elems, embed_dim]
         '''
         equivariant_output = super().forward(batch)
+
+        # single batch
         if len(equivariant_output.shape) == 3:
             equivariant_output.unsqueeze(0)
 

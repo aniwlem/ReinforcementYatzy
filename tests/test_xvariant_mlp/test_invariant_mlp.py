@@ -21,7 +21,6 @@ class TestEquivariantLayer:
             mlp_channels=self.mlp_channels,
             mlp_pool_type=PoolType.AVG,
             invarintifier_pool_types=InvariantPoolingParams(
-                channel_pooling=PoolType.AVG,
                 embed_pooling=PoolType.AVG,
                 elem_pooling=PoolType.AVG,
             )
@@ -35,7 +34,6 @@ class TestEquivariantLayer:
             mlp_channels=self.mlp_channels,
             mlp_pool_type=PoolType.MAX,
             invarintifier_pool_types=InvariantPoolingParams(
-                channel_pooling=PoolType.MAX,
                 embed_pooling=PoolType.MAX,
                 elem_pooling=PoolType.MAX,
             )
@@ -49,7 +47,6 @@ class TestEquivariantLayer:
             mlp_channels=self.mlp_channels,
             mlp_pool_type=PoolType.MAX,
             invarintifier_pool_types=InvariantPoolingParams(
-                channel_pooling=PoolType.MAX,
                 embed_pooling=PoolType.MAX,
                 elem_pooling=PoolType.MAX,
             )
@@ -72,6 +69,7 @@ class TestEquivariantLayer:
         for curr_layer in model_list:
             assert list(curr_layer(batch).shape) == [
                 batch_size,
+                self.mlp_channels[-1],
             ]
 
     @pytest.mark.parametrize('batch_size', range(1, 10))
@@ -104,4 +102,5 @@ class TestEquivariantLayer:
 
         assert list(single_embed_dim_mlp(batch).shape) == [
             batch_size,
+            self.mlp_channels[-1],
         ]
