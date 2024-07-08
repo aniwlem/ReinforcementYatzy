@@ -74,20 +74,3 @@ class TestEquivariantLayer:
                     (curr_layer(batch[:, :, perm, :])
                         == results[:, :, perm, :]).numpy
                 )
-
-    # @pytest.mark.parametrize('batch_size', range(1, 10))
-    # def test_equivariant_arb_out_dim_forward(self, batch_size: int):
-    #     out_dim = 6
-    #     layer = EquivariantLayer(
-    #         input_dim=self.input_dim,
-    #         input_channels=self.input_channels,
-    #         output_channels=self.output_channels,
-    #     )
-    #
-    #     batch = torch.rand([batch_size, self.input_channels, self.input_dim])
-    #     results = layer(batch)
-    #     perms = list(permutations(range(self.input_dim)))
-    #     for perm in perms:
-    #         assert np.all(
-    #             (layer(batch[:, :, perm]) == results[:, :, perm]).numpy
-    #         )

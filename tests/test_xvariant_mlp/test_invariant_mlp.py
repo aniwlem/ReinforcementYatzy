@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import torch
 from torch import nn
-from reinforcement_yatzy.nn_models.xvariant_mlp.base_models.equivariant_mlp import EquivariantMLP
+from reinforcement_yatzy.nn_models.xvariant_mlp.base_models.invariant_mlp import InvariantMLP, InvariantPoolingParams
 from reinforcement_yatzy.nn_models.xvariant_mlp.pool_type_enum import PoolType
 
 
@@ -15,20 +15,30 @@ class TestEquivariantLayer:
 
     @pytest.fixture
     def avg_mlp(self):
-        return EquivariantMLP(
+        return InvariantMLP(
             n_elems=self.n_elems,
             embed_dim=self.embed_dim,
             mlp_channels=self.mlp_channels,
-            pool_type=PoolType.AVG,
+            mlp_pool_type=PoolType.AVG,
+            invarintifier_pool_types=InvariantPoolingParams(
+                channel_pooling=PoolType.AVG,
+                embed_pooling=PoolType.AVG,
+                elem_pooling=PoolType.AVG,
+            )
         )
 
     @pytest.fixture
     def maxpool_mlp(self):
-        return EquivariantMLP(
+        return InvariantMLP(
             n_elems=self.n_elems,
             embed_dim=self.embed_dim,
             mlp_channels=self.mlp_channels,
-            pool_type=PoolType.MAX,
+            mlp_pool_type=PoolType.MAX,
+            invarintifier_pool_types=InvariantPoolingParams(
+                channel_pooling=PoolType.MAX,
+                embed_pooling=PoolType.MAX,
+                elem_pooling=PoolType.MAX,
+            )
         )
 
     @pytest.fixture
@@ -42,23 +52,22 @@ class TestEquivariantLayer:
             self.mlp_channels[0],
             self.n_elems,
             self.embed_dim,
+
         ])
 
         for curr_layer in model_list:
             assert list(curr_layer(batch).shape) == [
                 batch_size,
-                self.mlp_channels[-1],
-                self.n_elems,
-                self.embed_dim,
             ]
 
     @pytest.mark.parametrize('batch_size', range(1, 10))
-    def test_equivariance(self, batch_size: int, model_list: list[nn.Module]):
+    def test_invariance(self, batch_size: int, model_list: list[nn.Module]):
         batch = torch.rand([
             batch_size,
             self.mlp_channels[0],
             self.n_elems,
             self.embed_dim,
+
         ])
         for curr_layer in model_list:
             results = curr_layer(batch)
@@ -66,6 +75,5 @@ class TestEquivariantLayer:
             perms = list(permutations(range(self.n_elems)))
             for perm in perms:
                 assert np.all(
-                    (curr_layer(batch[:, :, perm, :])
-                        == results[:, :, perm, :]).numpy
+                    (curr_layer(batch[:, :, perm, :]) == results).numpy
                 )
