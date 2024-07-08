@@ -32,6 +32,15 @@ class TestEquivariantLayer:
         )
 
     @pytest.fixture
+    def single_embed_dim_mlp(self):
+        return EquivariantMLP(
+            n_elems=self.n_elems,
+            embed_dim=1,
+            mlp_channels=self.mlp_channels,
+            pool_type=PoolType.MAX,
+        )
+
+    @pytest.fixture
     def model_list(self, avg_mlp,  maxpool_mlp):
         return [avg_mlp,  maxpool_mlp]
 
@@ -69,3 +78,20 @@ class TestEquivariantLayer:
                     (curr_layer(batch[:, :, perm, :])
                         == results[:, :, perm, :]).numpy
                 )
+
+    @pytest.mark.parametrize('batch_size', range(1, 10))
+    def test_single_dice_embed_dim(self, batch_size: int, single_embed_dim_mlp: EquivariantMLP):
+        batch = torch.rand([
+            batch_size,
+            self.mlp_channels[0],
+            self.n_elems,
+            1,
+
+        ])
+
+        assert list(single_embed_dim_mlp(batch).shape) == [
+            batch_size,
+            self.mlp_channels[-1],
+            self.n_elems,
+            1,
+        ]

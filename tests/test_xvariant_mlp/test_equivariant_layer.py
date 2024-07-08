@@ -36,6 +36,36 @@ class TestEquivariantLayer:
         )
 
     @pytest.fixture
+    def single_embed_dim_layer(self):
+        return EquivariantLayer(
+            n_elems=self.n_elems,
+            embed_dim=1,
+            n_input_channels=self.n_input_channels,
+            n_output_channels=self.n_output_channels,
+            pool_type=PoolType.AVG,
+        )
+
+    @pytest.fixture
+    def single_channel_layer(self):
+        return EquivariantLayer(
+            n_elems=self.n_elems,
+            embed_dim=self.embed_dim,
+            n_input_channels=1,
+            n_output_channels=self.n_output_channels,
+            pool_type=PoolType.AVG,
+        )
+
+    @pytest.fixture
+    def single_channel_and_embed_dim_layer(self):
+        return EquivariantLayer(
+            n_elems=self.n_elems,
+            embed_dim=1,
+            n_input_channels=1,
+            n_output_channels=self.n_output_channels,
+            pool_type=PoolType.AVG,
+        )
+
+    @pytest.fixture
     def model_list(self, avg_layer,  maxpool_layer):
         return [avg_layer,  maxpool_layer]
 
@@ -74,3 +104,55 @@ class TestEquivariantLayer:
                     (curr_layer(batch[:, :, perm, :])
                         == results[:, :, perm, :]).numpy
                 )
+
+    @pytest.mark.parametrize('batch_size', range(1, 10))
+    def test_single_dice_embed_dim(self, batch_size: int, single_embed_dim_layer: EquivariantLayer):
+        batch = torch.rand([
+            batch_size,
+            self.n_input_channels,
+            self.n_elems,
+            1,
+
+        ])
+
+        assert list(single_embed_dim_layer(batch).shape) == [
+            batch_size,
+            self.n_output_channels,
+            self.n_elems,
+            1,
+        ]
+
+    @pytest.mark.parametrize('batch_size', range(1, 10))
+    def test_single_channel_dim(self, batch_size: int, single_channel_layer: EquivariantLayer):
+        batch = torch.rand([
+            batch_size,
+            1,
+            self.n_elems,
+            self.embed_dim
+
+        ])
+
+        assert list(single_channel_layer(batch).shape) == [
+            batch_size,
+            self.n_output_channels,
+            self.n_elems,
+            self.embed_dim,
+        ]
+
+    @pytest.mark.parametrize('batch_size', range(1, 10))
+    def test_single_channel_and_dim_dim(self, batch_size: int, single_channel_and_embed_dim_layer: EquivariantLayer):
+        batch = torch.rand([
+            batch_size,
+            1,
+            self.n_elems,
+            1,
+
+        ])
+        print(list(single_channel_and_embed_dim_layer(batch).shape))
+
+        assert list(single_channel_and_embed_dim_layer(batch).shape) == [
+            batch_size,
+            self.n_output_channels,
+            self.n_elems,
+            1,
+        ]

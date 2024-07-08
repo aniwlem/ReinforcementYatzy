@@ -42,6 +42,20 @@ class TestEquivariantLayer:
         )
 
     @pytest.fixture
+    def single_embed_dim_mlp(self):
+        return InvariantMLP(
+            n_elems=self.n_elems,
+            embed_dim=1,
+            mlp_channels=self.mlp_channels,
+            mlp_pool_type=PoolType.MAX,
+            invarintifier_pool_types=InvariantPoolingParams(
+                channel_pooling=PoolType.MAX,
+                embed_pooling=PoolType.MAX,
+                elem_pooling=PoolType.MAX,
+            )
+        )
+
+    @pytest.fixture
     def model_list(self, avg_mlp,  maxpool_mlp):
         return [avg_mlp,  maxpool_mlp]
 
@@ -77,3 +91,17 @@ class TestEquivariantLayer:
                 assert np.all(
                     (curr_layer(batch[:, :, perm, :]) == results).numpy
                 )
+
+    @pytest.mark.parametrize('batch_size', range(1, 10))
+    def test_single_dice_embed_dim(self, batch_size: int, single_embed_dim_mlp: InvariantMLP):
+        batch = torch.rand([
+            batch_size,
+            self.mlp_channels[0],
+            self.n_elems,
+            1,
+
+        ])
+
+        assert list(single_embed_dim_mlp(batch).shape) == [
+            batch_size,
+        ]
