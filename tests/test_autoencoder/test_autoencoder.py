@@ -2,7 +2,7 @@ import pytest
 
 import torch
 
-from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder, ScoreboardDecoder, ScoreboardAutoencoder
+from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder, ScoreboardAutoencoder
 
 
 class TestAutoEncoder:
@@ -14,26 +14,18 @@ class TestAutoEncoder:
     def encoder(self):
         encoder = ScoreboardEncoder(
             self.input_dim,
-            self.mlp_dims,
             self.latent_dim,
+            self.mlp_dims,
         )
         return encoder
 
     @pytest.fixture
     def autoencoder(self):
-        encoder = ScoreboardEncoder(
+        autoencoder = ScoreboardAutoencoder(
             self.input_dim,
+            self.latent_dim,
             self.mlp_dims,
-            self.latent_dim,
         )
-
-        decoder = ScoreboardDecoder(
-            self.input_dim,
-            self.mlp_dims[::-1],
-            self.latent_dim,
-        )
-
-        autoencoder = ScoreboardAutoencoder(encoder, decoder)
         return autoencoder
 
     @pytest.mark.parametrize('batch_size', range(10))

@@ -121,7 +121,7 @@ class ScoreboardGenerator:
         scoreboards[unplayed_inds] = self.player.UNPLAYED_VAL
         scoreboards[scratch_inds] = self.player.SCRATCH_VAL
 
-        return pd.DataFrame(scoreboards)
+        return pd.DataFrame(scoreboards).astype('int8')
 
     def append_chunks(self, batch_size: int, n_chunks: int):
         for i in range(n_chunks):

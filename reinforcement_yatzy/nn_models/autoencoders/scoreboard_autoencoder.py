@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 from torch import nn
 
@@ -5,9 +7,9 @@ from torch import nn
 class ScoreboardEncoder(nn.Module):
     def __init__(
         self,
-        input_dim: int,
-        mlp_dims: list[int],
-        latent_dim: int,
+        input_dim: int = 5,
+        latent_dim: int = 8,
+        mlp_dims: list[int] = [69],
     ) -> None:
         super().__init__()
         self.latent_dim = latent_dim
@@ -40,9 +42,9 @@ class ScoreboardEncoder(nn.Module):
 class ScoreboardDecoder(nn.Module):
     def __init__(
         self,
-        input_dim: int,
-        mlp_dims: list[int],
-        latent_dim: int,
+        input_dim: int = 5,
+        latent_dim: int = 8,
+        mlp_dims: list[int] = [69],
     ) -> None:
         super().__init__()
 
@@ -73,12 +75,34 @@ class ScoreboardDecoder(nn.Module):
 class ScoreboardAutoencoder(nn.Module):
     def __init__(
         self,
-        encoder: ScoreboardEncoder,
-        decoder: ScoreboardDecoder,
+        input_dim: int = 5,
+        latent_dim: int = 8,
+        mlp_dims: list[int] = [69],
+        mlp_dims_decoder: list[int] | None = None,
     ) -> None:
         super().__init__()
-        self.encoder = encoder
-        self.decoder = decoder
+        if mlp_dims_decoder is None:
+            mlp_dims_decoder = mlp_dims[::-1]
+
+        self.encoder = ScoreboardEncoder(
+            input_dim,
+            latent_dim,
+            mlp_dims,
+        )
+
+        self.decoder = ScoreboardDecoder(
+            input_dim,
+            latent_dim,
+            mlp_dims_decoder,
+        )
+
+    def load_encoder_decoder_state_dicts(
+        self,
+        encoder_state_dict_path: Path,
+        decoder_state_dict_path: Path,
+    ) -> None:
+        self.encoder.load_state_dict(torch.load(encoder_state_dict_path))
+        self.decoder.load_state_dict(torch.load(decoder_state_dict_path))
 
     def forward(self, batch: torch.Tensor) -> torch.Tensor:
         latent = self.encoder(batch)

@@ -12,28 +12,17 @@ from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
 from reinforcement_yatzy.scoreboard_dataset.scoreboard_dataset import ScoreboardDataset
-from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder, ScoreboardDecoder, ScoreboardAutoencoder
+from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder import ScoreboardAutoencoder
 from reinforcement_yatzy.yatzy.empty_training_player import TrainingYatzyPlayer
 
 
 def setup_autoencoder(encoder_dims: list[int], latent_dim: int) -> ScoreboardAutoencoder:
     input_dim = TrainingYatzyPlayer.NUM_ENTRIES
 
-    encoder = ScoreboardEncoder(
+    autoencoder = ScoreboardAutoencoder(
         input_dim=input_dim,
         mlp_dims=encoder_dims,
         latent_dim=latent_dim
-    )
-
-    decoder = ScoreboardDecoder(
-        input_dim=input_dim,
-        mlp_dims=encoder_dims[::-1],
-        latent_dim=latent_dim
-    )
-
-    autoencoder = ScoreboardAutoencoder(
-        encoder=encoder,
-        decoder=decoder,
     )
     return autoencoder
 
@@ -138,7 +127,9 @@ def main(save_path: Path, dataset_path: Path, loss_log_dir_path: Path, epochs: i
         n_rising_until_break=5
     )
     torch.save(autoencoder.encoder.state_dict(), save_path)
-    print(f'Saved weights to {save_path}')
+    decoder_path = save_path.with_stem(save_path.stem + '_decoder')
+    torch.save(autoencoder.decoder.state_dict(), decoder_path)
+    print(f'Saved weights to {save_path} and {decoder_path}')
 
 
 if __name__ == '__main__':
