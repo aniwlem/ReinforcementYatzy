@@ -148,7 +148,6 @@ class TestEquivariantLayer:
             1,
 
         ])
-        print(list(single_channel_and_embed_dim_layer(batch).shape))
 
         assert list(single_channel_and_embed_dim_layer(batch).shape) == [
             batch_size,

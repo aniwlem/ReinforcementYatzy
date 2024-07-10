@@ -23,7 +23,7 @@ class TestYatzyPlayerFunctions():
             if key != 'Ones':
                 player.scoreboard[key] = 1
 
-        player.check_points_of_dice()
+        player.check_score_current_dice()
         player.get_curr_legal_options()
         print(player.curr_legal_options)
         assert player.curr_legal_options == []
@@ -36,7 +36,7 @@ class TestYatzyPlayerFunctions():
             if key != 'Ones':
                 player.scoreboard[key] = 1
 
-        player.check_points_of_dice()
+        player.check_score_current_dice()
         player.get_curr_legal_options()
         player.get_scratch_options()
         print(player.scratch_options)

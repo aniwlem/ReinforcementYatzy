@@ -44,13 +44,17 @@ class ABCYatzyPlayer(ABC):
 
     @abstractmethod
     def select_dice_to_throw(self) -> list[int]:
-        pass
+        ...
 
     @abstractmethod
     def select_next_entry(self) -> str:
-        pass
+        ...
 
-    def check_points_of_dice(self) -> None:
+    def check_score_current_dice(self) -> dict[str, int]:
+        '''
+        Calculates the point for each scoreboard entry for the current dice.
+        Illegal moves get a score of self.SCRATCH_VAL
+        '''
         # This implementation does NOT count four of a kind as two pairs, or
         # yatzy as full house.
 
@@ -134,9 +138,11 @@ class ABCYatzyPlayer(ABC):
                 curr_points[key] = self.SCRATCH_VAL
 
         self.curr_possible_scores = curr_points
+        return curr_points
 
+    @abstractmethod
     def play_turn(self):
-        pass
+        ...
 
     def check_bonus(self) -> int:
         upper_score, upper_is_full = self.get_upper_score()

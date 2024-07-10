@@ -23,7 +23,7 @@ class TestScoreChecker:
     def test_returns_anything(self, player: HumanConsoleYatzyPlayer):
         # make sure it returns anything at all
         player.dice = np.ones(5, dtype=int)
-        player.check_points_of_dice()
+        player.check_score_current_dice()
         assert [
             val for val in player.curr_possible_scores
         ] != []
@@ -33,7 +33,7 @@ class TestScoreChecker:
     @pytest.mark.parametrize('number', range(1, 7))
     def test_numerals(self, player: HumanConsoleYatzyPlayer, number: int):
         player.dice = number * np.ones((5), dtype=int)
-        player.check_points_of_dice()
+        player.check_score_current_dice()
         assert player.curr_possible_scores[
             player.NUMS[number - 1]
         ] == 5 * number
@@ -43,7 +43,7 @@ class TestScoreChecker:
         # The best pair should always be the oned that is selected when there
         # are multiple pairs.
         player.dice = np.array([number, number, 3, 3, 3])
-        player.check_points_of_dice()
+        player.check_score_current_dice()
         assert player.curr_possible_scores['One Pair'] == max(number, 3) * 2
 
     @pytest.mark.parametrize('number', range(1, 7))
@@ -51,7 +51,7 @@ class TestScoreChecker:
     def test_tuple_scores(self, player: HumanConsoleYatzyPlayer, number: int, tuple_: int):
         player.dice = np.array(
             tuple_ * [number] + (player.NUM_DICE - tuple_) * [1])
-        player.check_points_of_dice()
+        player.check_score_current_dice()
 
         # check that three of a kind is also a pair etc
         for i in range(2, max(3, tuple_)):
@@ -63,7 +63,7 @@ class TestScoreChecker:
     @pytest.mark.parametrize('b', range(1, 7))
     def test_two_pairs(self, player: HumanConsoleYatzyPlayer, a: int, b: int):
         player.dice = np.array([[1] + 2 * [a] + 2 * [b]])
-        player.check_points_of_dice()
+        player.check_score_current_dice()
         if a != b:
             assert player.curr_possible_scores['Two Pairs'] == 2 * a + 2 * b
         else:
@@ -73,7 +73,7 @@ class TestScoreChecker:
     @pytest.mark.parametrize('b', range(1, 7))
     def test_full_house(self, player: HumanConsoleYatzyPlayer, a: int, b: int):
         player.dice = np.array([3 * [a] + 2 * [b]])
-        player.check_points_of_dice()
+        player.check_score_current_dice()
         if a != b:
             assert player.curr_possible_scores['Full House'] == 3 * a + 2 * b
         else:
@@ -84,7 +84,7 @@ class TestScoreChecker:
         dice = [*range(1, 7)]
         dice.pop(number - 1)
         player.dice = np.array(dice)
-        player.check_points_of_dice()
+        player.check_score_current_dice()
 
         print(player.dice)
         print(player.curr_possible_scores['Small Straight'])
@@ -109,7 +109,7 @@ class TestScoreChecker:
             (player.NUM_DICE - tuple_) *
             [(number + 1) % 6 + 1]  # Only yatzy if tuple_ == 5
         )
-        player.check_points_of_dice()
+        player.check_score_current_dice()
 
         if tuple_ == 5:
             assert player.curr_possible_scores['Yatzy'] == 50
