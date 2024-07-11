@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
+from typing import Any
+
 import numpy as np
-import numpy.typing as npt
 
 
 class ABCYatzyPlayer(ABC):
@@ -35,15 +36,28 @@ class ABCYatzyPlayer(ABC):
     def __init__(self) -> None:
         self.dice = np.zeros(self.NUM_DICE, dtype=int)
 
-    def throw_dice(
-        self,
-        ind_throw: list[int] | range | npt.NDArray[np.int_]
-    ) -> None:
-        new_vals = np.random.randint(1, 7, [len(ind_throw)])
-        self.dice[ind_throw] = new_vals
+    # @abstractmethod
+    # @overload
+    # def throw_dice(self, i_dice_throw: list[int]) -> None:
+    #     ...
+    #
+    # @abstractmethod
+    # @overload
+    # def throw_dice(self, i_dice_throw: torch.Tensor) -> None:
+    #     ...
 
     @abstractmethod
-    def select_dice_to_throw(self) -> list[int]:
+    def throw_dice(self, i_dice_throw) -> None:
+        ...
+        # if isinstance(i_dice_throw, torch.Tensor):
+        #     new_vals = np.random.randint(1, 7, [torch.sum(i_dice_throw)])
+        #     self.dice[i_dice_throw] = new_vals
+        # else:
+        #     new_vals = np.random.randint(1, 7, [len(i_dice_throw)])
+        #     self.dice[i_dice_throw] = new_vals
+
+    @abstractmethod
+    def select_dice_to_throw(self) -> Any:
         ...
 
     @abstractmethod
@@ -54,9 +68,10 @@ class ABCYatzyPlayer(ABC):
         '''
         Calculates the point for each scoreboard entry for the current dice.
         Illegal moves get a score of self.SCRATCH_VAL
+
+        This implementation does NOT count four of a kind as two pairs, or
+        yatzy as full house.
         '''
-        # This implementation does NOT count four of a kind as two pairs, or
-        # yatzy as full house.
 
         # less magic
         die_sides = 6
