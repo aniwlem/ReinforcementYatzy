@@ -86,7 +86,7 @@ class ABCYatzyPlayer(ABC):
 
         curr_points = {key: self.SCRATCH_VAL for key in self.scoreboard.keys()}
 
-        curr_points['Chance'] = np.sum(self.dice)
+        curr_points['Chance'] = int(np.sum(self.dice))
 
         # Upper section
         upper_scores = (dots * counts)
@@ -117,23 +117,23 @@ class ABCYatzyPlayer(ABC):
             tuple_multipliers * dice_values)[is_n_tuple]
 
         # One pair
-        curr_points['One Pair'] = np.max(n_tuple_scores[:, 0]).astype(int)
+        curr_points['One Pair'] = int(np.max(n_tuple_scores[:, 0]))
         # Two pairs
         valid_pairs = n_tuple_scores[n_tuple_scores[:, 0] > 0, 0]
         if len(valid_pairs) > 1:
             # The slicing is not necessary since we only have 5 dice
-            curr_points['Two Pairs'] = np.sum(valid_pairs[-2:], dtype=int)
+            curr_points['Two Pairs'] = int(np.sum(valid_pairs[-2:], dtype=int))
         # three of a kind
-        curr_points['Three of a Kind'] = np.max(
-            n_tuple_scores[:, 1]).astype(int)
+        curr_points['Three of a Kind'] = int(np.max(
+            n_tuple_scores[:, 1]))
         # Four  of a kind
-        curr_points['Four of a Kind'] = np.max(
-            n_tuple_scores[:, 2]).astype(int)
+        curr_points['Four of a Kind'] = int(np.max(
+            n_tuple_scores[:, 2]))
 
         # Full House
         # if len(counts) == 2 the split is either 1:4 or 2:3
         if raw_counts.size == 2 and 2 in raw_counts:
-            curr_points['Full House'] = np.sum(self.dice, dtype=int)
+            curr_points['Full House'] = int(np.sum(self.dice, dtype=int))
 
         # Yatzy and straights
         # These are mutually exclusive so no need to check second if first is true
