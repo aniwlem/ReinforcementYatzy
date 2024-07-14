@@ -44,14 +44,24 @@ class TestQAgent:
     ) -> list[dict[str, Any]]:
         old_dices = np.random.randint(1, 7, size=[batch_size, self.n_dice])
         new_dices = np.random.randint(1, 7, size=[batch_size, self.n_dice])
-        scoreboards = [TrainingYatzyPlayer.scoreboard.copy()
-                       for _ in range(batch_size)]
+        scoreboards = [
+            {
+                key: randint for key, randint in
+                zip(
+                    TrainingYatzyPlayer.scoreboard.keys(),
+                    np.random.randint(
+                        0, 30, [TrainingYatzyPlayer.NUM_ENTRIES]
+                    )
+                )
+            } for _ in range(batch_size)
+        ]
+
         throws_lefts = np.random.randint(0, 1, size=[batch_size])
         i_dice_to_throws = np.random.choice(
             [0, 1],
             size=[batch_size, self.n_dice],
         )
-        rewards = np.random.randint(0, 30, size=[batch_size]) * \
+        rewards = np.random.randint(0, 30, size=[batch_size]) *\
             (1 - throws_lefts)
 
         dice_buffer_batch = [
@@ -145,6 +155,8 @@ class TestQAgent:
     def test_play_game(self, q_agent: DeepQYatzyPlayer):
         q_agent.dice_buffer = []
         q_agent.entry_buffer = []
-        for key in q_agent.scoreboard.keys():
-            q_agent.scoreboard[key] = q_agent.UNPLAYED_VAL
         q_agent.play_game()
+
+        print(q_agent.scoreboard)
+
+        assert q_agent.UNPLAYED_VAL not in q_agent.scoreboard.values()

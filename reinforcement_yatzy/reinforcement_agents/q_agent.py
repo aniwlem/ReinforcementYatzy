@@ -62,37 +62,32 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         self.select_entry_model.load_state_dict(torch.load(entry_model_path))
         self.target_entry_model.load_state_dict(torch.load(entry_model_path))
 
-    # TODO: Pickle instead
     def save_network_params(self, model_paths: dict[str, str]) -> None:
-        torch.save(self.select_dice_model.state_dict(),
-                   model_paths['dice model'])
-        torch.save(self.select_entry_model.state_dict(),
-                   model_paths['entry model'])
+        # TODO: Pickle instead
+        torch.save(
+            self.select_dice_model.state_dict(), model_paths['dice model']
+        )
+        torch.save(
+            self.select_entry_model.state_dict(), model_paths['entry model']
+        )
 
     def throw_dice(self, i_dice_throw: list[int]) -> None:
         new_vals = np.random.randint(1, 7, [sum(i_dice_throw)])
         self.dice[i_dice_throw] = new_vals
 
     def select_dice_to_throw(self) -> list[int]:
-        curr_dice = torch.tensor(
-            self.dice,
-            dtype=torch.float32
-        ).unsqueeze(0)
+        curr_dice = torch.tensor(self.dice, dtype=torch.float32).unsqueeze(0)
 
         curr_entries = torch.tensor(
-            list(self.scoreboard.values()),
-            dtype=torch.float32,
+            list(self.scoreboard.values()), dtype=torch.float32
         ).unsqueeze(0)
 
         curr_throws_left = torch.tensor(
-            self.throws_left,
-            dtype=torch.float32,
+            self.throws_left, dtype=torch.float32
         ).unsqueeze(0)
 
         throw_probs = self.select_dice_model(
-            curr_dice,
-            curr_entries,
-            curr_throws_left,
+            curr_dice, curr_entries, curr_throws_left,
         )
 
         # TODO: threshold should be hyperparam?
@@ -101,45 +96,42 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         return dice_to_throw
 
     def select_next_entry(self) -> str:
-        curr_dice = torch.tensor(
-            self.dice,
-            dtype=torch.float32,
-        ).unsqueeze(0)
+        curr_dice = torch.tensor(self.dice, dtype=torch.float32).unsqueeze(0)
 
         curr_entries = torch.tensor(
-            list(self.scoreboard.values()),
-            dtype=torch.float32,
+            list(self.scoreboard.values()), dtype=torch.float32
         ).unsqueeze(0)
 
+        # NOTE: The entry selector could just get the current possible options,
+        # instead of the dice
         entry_probs = self.select_entry_model(curr_dice, curr_entries)
 
         # Use index to save time looking up names in all the following logic
         i_selected_entry = int(torch.argmax(entry_probs))
         is_legal_move = (
             np.array(list(self.scoreboard.values())) == self.UNPLAYED_VAL
-        ).astype(int)
+        )
 
         # If the agent wants to play an illegal move, i.e. select an already
         # occupied entry, take the _legal_ move with the highest prob from the model
         if not is_legal_move[i_selected_entry]:
-            # Indices sorted after according to how good the agent think it is
+            # Indices sorted after to how good the agent think it is
             i_sorted_entry_probs = torch.argsort(
-                entry_probs, descending=True).squeeze()
+                entry_probs, descending=True
+            ).squeeze()
 
             # Legal moves permuted so best moves are in front, masked to so only
-            # legal moves are non-zero
-            sorted_moves_legal_masked = i_sorted_entry_probs.numpy().astype(int) * \
-                is_legal_move[i_sorted_entry_probs.tolist()]
+            # legal moves are non-zero. To not ignore first entry (index 0)
+            # offset all values by one
+            offset_sorted_moves_legal_masked = (i_sorted_entry_probs.numpy(
+            ) + 1) * is_legal_move[i_sorted_entry_probs.tolist()]
 
             # Best move is the one the network likes the most, that is legal
-            sorted_legal_moves = sorted_moves_legal_masked[
-                np.nonzero(sorted_moves_legal_masked)
-            ]
+            sorted_legal_moves = offset_sorted_moves_legal_masked[
+                np.nonzero(offset_sorted_moves_legal_masked)
+            ] - 1  # remove offset
 
-            if sorted_legal_moves.size == 0:
-                i_selected_entry = int(sorted_legal_moves)
-            else:
-                i_selected_entry = int(sorted_legal_moves[0])
+            i_selected_entry = int(sorted_legal_moves[0])
 
         name_selected_entry = list(self.scoreboard.keys())[i_selected_entry]
         return name_selected_entry
@@ -287,29 +279,28 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         # The first throw is always of all dice
         i_dice_to_throw = list(np.ones([self.NUM_DICE], dtype=int))
         self.throw_dice(i_dice_to_throw)
-        self.check_score_current_dice()
         old_dice = self.dice.copy()
         self.throws_left = 1
 
         while self.throws_left >= 0:
             i_dice_to_throw = self.select_dice_to_throw()
             self.throw_dice(i_dice_to_throw)
-            self.check_score_current_dice()
             new_dice = self.dice.copy()
 
             # the dice buffer is used to train the dice selector, and thus it
-            # should try to find the dice to keep for the given dice _and_
-            # scoreboard.
-            # TODO: Make sure no unnecessary type convertions are needed here (force float?)
+            # should try to find the dice to keep for the given dice,
+            # scoreboard, and number of throws left.
             self.dice_buffer.append({
                 'old_dice': torch.tensor(old_dice, dtype=torch.float32),
                 'new_dice': torch.tensor(new_dice, dtype=torch.float32),
+                # TODO: embed scoreboard so non-numerics get better
+                # representation, and numericals get normalized
                 'scoreboard': torch.tensor(list(self.scoreboard.values()), dtype=torch.float32),
                 'i_dice_to_throw': torch.tensor(i_dice_to_throw, dtype=torch.float32),
                 'throws_left': self.throws_left,
                 'reward': 0,
-                # 'curr_options': self.curr_options.copy() #why is this included?
             })
+
             if len(self.dice_buffer) > self.dice_buffer_size:
                 self.dice_buffer.pop(0)
 
@@ -318,18 +309,21 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
 
         old_scoreboard = list(self.scoreboard.values())
         next_entry = self.select_next_entry()
+        self.check_score_current_dice()
         self.get_curr_legal_options()
+
         if next_entry in self.curr_legal_options:
             current_point = self.curr_possible_scores[next_entry]
             self.scoreboard[next_entry] = current_point
 
-            # NOTE: Add the reward to the last dice_buffer element
-            # Without this there would be no scores in the dice model
-            self.dice_buffer[-1]['reward'] += current_point
         else:
             self.scoreboard[next_entry] = self.SCRATCH_VAL
             current_point = self.PENALTY_SCRATCH
 
+        # NOTE: Add the reward to the last dice_buffer element
+        # Without this there would be no scores in the dice model
+
+        self.dice_buffer[-1]['reward'] += current_point
         new_scoreboard = list(self.scoreboard.values())
 
         i_next_entry = list(self.scoreboard.keys()).index(next_entry)
@@ -344,21 +338,10 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         if len(self.entry_buffer) > self.entry_buffer_size:
             self.dice_buffer.pop(0)
 
-        # Check the bonus, could be own function?
-        upper_score, upper_is_full = self.get_upper_score()
-        if upper_score >= 63:  # TODO: Unmagicify?
-            self.bonus = self.BONUS_VAL
-        elif upper_is_full:
-            self.bonus = self.SCRATCH_VAL
+        self.check_bonus()
 
-        # Reinforce both models
         self.reinforce()
 
     def play_game(self):
-        # TODO: Add some logging to know how things are going
-
-        for i in range(self.NUM_ENTRIES):
-            # while not (self.scoreboard.values() == self.UNPLAYED_VAL):
-            self.play_turn()
-            print(list(self.scoreboard.values()))
+        super().play_game()
         self.epoch += 1
