@@ -36,25 +36,9 @@ class ABCYatzyPlayer(ABC):
     def __init__(self) -> None:
         self.dice = np.zeros(self.NUM_DICE, dtype=int)
 
-    # @abstractmethod
-    # @overload
-    # def throw_dice(self, i_dice_throw: list[int]) -> None:
-    #     ...
-    #
-    # @abstractmethod
-    # @overload
-    # def throw_dice(self, i_dice_throw: torch.Tensor) -> None:
-    #     ...
-
     @abstractmethod
     def throw_dice(self, i_dice_throw) -> None:
         ...
-        # if isinstance(i_dice_throw, torch.Tensor):
-        #     new_vals = np.random.randint(1, 7, [torch.sum(i_dice_throw)])
-        #     self.dice[i_dice_throw] = new_vals
-        # else:
-        #     new_vals = np.random.randint(1, 7, [len(i_dice_throw)])
-        #     self.dice[i_dice_throw] = new_vals
 
     @abstractmethod
     def select_dice_to_throw(self) -> Any:
@@ -84,15 +68,17 @@ class ABCYatzyPlayer(ABC):
         counts = np.zeros((die_sides))
         counts[raw_dots - 1] = raw_counts
 
-        curr_points = {key: self.SCRATCH_VAL for key in self.scoreboard.keys()}
+        curr_possible_scores = {
+            key: self.SCRATCH_VAL for key in self.scoreboard.keys()}
 
-        curr_points['Chance'] = int(np.sum(self.dice))
+        curr_possible_scores['Chance'] = int(np.sum(self.dice))
 
         # Upper section
         upper_scores = (dots * counts)
         upper_scores[upper_scores == 0] = self.SCRATCH_VAL
         for dot in dots:
-            curr_points[self.NUMS[dot - 1]] = int(upper_scores[dot - 1])
+            curr_possible_scores[self.NUMS[dot - 1]
+                                 ] = int(upper_scores[dot - 1])
 
         # Lower section
         # tuplets, used later for score assignment
@@ -117,47 +103,55 @@ class ABCYatzyPlayer(ABC):
             tuple_multipliers * dice_values)[is_n_tuple]
 
         # One pair
-        curr_points['One Pair'] = int(np.max(n_tuple_scores[:, 0]))
+        curr_possible_scores['One Pair'] = int(np.max(n_tuple_scores[:, 0]))
         # Two pairs
         valid_pairs = n_tuple_scores[n_tuple_scores[:, 0] > 0, 0]
         if len(valid_pairs) > 1:
-            # The slicing is not necessary since we only have 5 dice
-            curr_points['Two Pairs'] = int(np.sum(valid_pairs[-2:], dtype=int))
+            # Since we only have 5 dice, if there are more than one pair there
+            # are exactly thwo pairs
+            curr_possible_scores['Two Pairs'] = int(
+                np.sum(valid_pairs, dtype=int))
         # three of a kind
-        curr_points['Three of a Kind'] = int(np.max(
+        curr_possible_scores['Three of a Kind'] = int(np.max(
             n_tuple_scores[:, 1]))
         # Four  of a kind
-        curr_points['Four of a Kind'] = int(np.max(
+        curr_possible_scores['Four of a Kind'] = int(np.max(
             n_tuple_scores[:, 2]))
 
         # Full House
         # if len(counts) == 2 the split is either 1:4 or 2:3
         if raw_counts.size == 2 and 2 in raw_counts:
-            curr_points['Full House'] = int(np.sum(self.dice, dtype=int))
+            curr_possible_scores['Full House'] = int(
+                np.sum(self.dice, dtype=int))
 
         # Yatzy and straights
         # These are mutually exclusive so no need to check second if first is true
         if raw_counts.size == 1:
-            curr_points['Yatzy'] = 50
+            curr_possible_scores['Yatzy'] = 50
 
         elif raw_counts.size == 5:
             if 1 in raw_dots and 6 not in raw_dots:
-                curr_points['Small Straight'] = 15
+                curr_possible_scores['Small Straight'] = 15
             if 6 in raw_dots and 1 not in raw_dots:
-                curr_points['Big Straight'] = 20
+                curr_possible_scores['Big Straight'] = 20
 
         # Needs to be unable to choose things already played
-        # Is this super slow? Might need some numpier solution
+        # NOTE: Is this super slow? Might need some numpier solution
         for key, value in self.scoreboard.items():
             if value != self.UNPLAYED_VAL:
-                curr_points[key] = self.SCRATCH_VAL
+                curr_possible_scores[key] = self.SCRATCH_VAL
 
-        self.curr_possible_scores = curr_points
-        return curr_points
+        self.curr_possible_scores = curr_possible_scores
+        return curr_possible_scores
 
     @abstractmethod
     def play_turn(self):
         ...
+
+    def play_game(self):
+        self.scoreboard = {key: self.UNPLAYED_VAL for key in self.scoreboard}
+        for i in range(self.NUM_ENTRIES):
+            self.play_turn()
 
     def check_bonus(self) -> int:
         upper_score, upper_is_full = self.get_upper_score()
@@ -194,3 +188,10 @@ class ABCYatzyPlayer(ABC):
             if score == self.UNPLAYED_VAL
         ]
         return self.scratch_options
+
+    def get_total_score(self) -> int:
+        bonus = (self.bonus if self.bonus == self.BONUS_VAL else 0)
+        sum_entry_scores = sum(
+            val for val in self.scoreboard.values() if val != self.SCRATCH_VAL)
+
+        return sum_entry_scores + bonus
