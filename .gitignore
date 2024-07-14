@@ -1,5 +1,7 @@
-\venv
-\__pycache__
-\.pytest
-\*.csv
-\*.pth
+venv
+__pycache__
+.pytest
+*.csv
+*.pth
+paper
+scripts
