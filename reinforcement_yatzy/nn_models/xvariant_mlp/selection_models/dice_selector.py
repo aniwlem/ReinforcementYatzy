@@ -26,16 +26,18 @@ class DiceSelector(nn.Module):
 
         self.mlp = EquivariantMLP(
             n_elems=n_dice,
-            embed_dim=dice_embed_dim + scoreboard_encoder.latent_dim,
+            # +1 for throw index
+            embed_dim=dice_embed_dim + scoreboard_encoder.latent_dim + 1,
             # Don't have to specify that first layer is one channel
             mlp_channels=[1, *mlp_channels],
             pool_type=mlp_pool_type,
         )
 
         self.selection_pool = DiceSelectionPooling(
-            embed_dim=dice_embed_dim + scoreboard_encoder.latent_dim,
+            # +1 for throw index
+            embed_dim=dice_embed_dim + scoreboard_encoder.latent_dim + 1,
             n_channels=mlp_channels[-1],
-            **asdict(selection_pooling_types)
+            **asdict(selection_pooling_types),
         )
 
         # TODO: add more layers?
@@ -53,11 +55,17 @@ class DiceSelector(nn.Module):
             dice = layer(dice)
         return dice
 
-    def forward(self, dices: torch.Tensor, scoreboards: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        dices: torch.Tensor,
+        scoreboards: torch.Tensor,
+        throw_indices: torch.Tensor,
+    ) -> torch.Tensor:
         '''
         input:
         dices: shape[batch_size, n_dice]
         scoreboards: shape[batch_size, n_entries]
+        throw_indices: shape[batch_size]
 
         output: shape[batch_size, n_dice]
         '''
@@ -66,8 +74,11 @@ class DiceSelector(nn.Module):
             dices.unsqueeze(0)
             scoreboards.unsqueeze(0)
 
-        dice_embeds = self._embed_dice(dices)  # [batch, n_dice, embed_dim]
-        # [batch, embed_dim]
+        batch_size = dices.shape[0]
+
+        # [batch, n_dice, dice_embed_dim]
+        dice_embeds = self._embed_dice(dices)
+        # [batch, scoreboard_embed_dim]
         scoreboard_embeds = self.scoreboard_encoder(scoreboards)
 
         # Each dice element get the same scoreboard embedding appended at the
@@ -75,14 +86,21 @@ class DiceSelector(nn.Module):
         # different dice embeddings.
         batch = torch.concat([
             dice_embeds,
-            scoreboard_embeds.unsqueeze(1).repeat([1, self.n_dice, 1])
-        ], dim=-1)
+            # add n_dice dimension and repeat along it
+            scoreboard_embeds.unsqueeze(1).repeat([1, self.n_dice, 1]),
+            # Add dice and embed_dims and repeat along dice dimension
+            throw_indices.reshape(batch_size, 1, 1).repeat(
+                [1, self.n_dice, 1]
+            ),
+        ],
+            dim=-1)
+
         batch = batch.unsqueeze(1)  # Add channel dim
         mlped_batch = self.mlp(batch)
 
         # Now the results have shape [batch_size, n_channels, n_dice, n_embeds]
         # since the model only needs one value per dice the 1:st and 3:rd dimensions
-        # must be pooled over in some manner.
+        # must be pooled over.  NOTE: Could use NN instead, why not?
         results = self.selection_pool(mlped_batch)
 
         if len(results.shape) == 1:

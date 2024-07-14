@@ -25,7 +25,7 @@ class TestYatzyPlayerFunctions():
 
         player.check_score_current_dice()
         player.get_curr_legal_options()
-        print(player.curr_legal_options)
+        # print(player.curr_legal_options)
         assert player.curr_legal_options == []
 
     @pytest.mark.parametrize('number', [*range(2, 7)] + [HumanConsoleYatzyPlayer.SCRATCH_VAL])
@@ -39,7 +39,7 @@ class TestYatzyPlayerFunctions():
         player.check_score_current_dice()
         player.get_curr_legal_options()
         player.get_scratch_options()
-        print(player.scratch_options)
+        # print(player.scratch_options)
         assert player.scratch_options == ['Ones']
 
     @pytest.mark.parametrize('number', range(1, 7))
@@ -56,7 +56,6 @@ class TestYatzyPlayerFunctions():
             for key in player.NUMS:
                 player.scoreboard[key] = 10
         _, is_full = player.get_upper_score()
-        print(player.scoreboard.values())
         assert is_full == should_fill
         player.scoreboard['One Pair'] = 69
 
