@@ -45,15 +45,8 @@ class TestQAgent:
         old_dices = np.random.randint(1, 7, size=[batch_size, self.n_dice])
         new_dices = np.random.randint(1, 7, size=[batch_size, self.n_dice])
         scoreboards = [
-            {
-                key: randint for key, randint in
-                zip(
-                    TrainingYatzyPlayer.scoreboard.keys(),
-                    np.random.randint(
-                        0, 30, [TrainingYatzyPlayer.NUM_ENTRIES]
-                    )
-                )
-            } for _ in range(batch_size)
+            np.random.randint(0, 30, [TrainingYatzyPlayer.NUM_ENTRIES])
+            for _ in range(batch_size)
         ]
 
         throws_lefts = np.random.randint(0, 1, size=[batch_size])
@@ -68,7 +61,7 @@ class TestQAgent:
             {
                 'old_dice': torch.tensor(old_dice, dtype=torch.float32),
                 'new_dice': torch.tensor(new_dice, dtype=torch.float32),
-                'scoreboard': torch.tensor(list(scoreboard.values()), dtype=torch.float32),
+                'scoreboard': torch.tensor(scoreboard, dtype=torch.float32),
                 'i_dice_to_throw': torch.tensor(i_dice_to_throw),
                 'throws_left': torch.tensor(throws_left),
                 'reward': reward,
@@ -98,8 +91,8 @@ class TestQAgent:
         entry_buffer_batch = [
             {
                 'dice': torch.tensor(dice, dtype=torch.float32),
-                'old_scoreboard': torch.tensor(list(old_scoreboard.values()), dtype=torch.float32),
-                'new_scoreboard': torch.tensor(list(new_scoreboard.values()), dtype=torch.float32),
+                'old_scoreboard': torch.tensor(old_scoreboard, dtype=torch.float32),
+                'new_scoreboard': torch.tensor(new_scoreboard, dtype=torch.float32),
                 'i_next_entry': i_next_entry,
                 'reward': reward,
             }
@@ -109,16 +102,16 @@ class TestQAgent:
         return entry_buffer_batch
 
     def test_select_dice(self, q_agent: DeepQYatzyPlayer):
-        q_agent.throw_dice(self.n_dice * [1])
+        q_agent.throw_dice(np.ones([q_agent.NUM_DICE], dtype=int))
         dice_throw_mask = q_agent.select_dice_to_throw()
 
         assert isinstance(dice_throw_mask, list)
 
     def test_select_entry(self, q_agent: DeepQYatzyPlayer):
-        q_agent.throw_dice(self.n_dice * [1])
+        q_agent.throw_dice(np.ones([q_agent.NUM_DICE], dtype=int))
         q_agent.check_score_current_dice()
         next_entry = q_agent.select_next_entry()
-        assert next_entry in q_agent.scoreboard.keys()
+        assert q_agent.scoreboard[next_entry] == q_agent.UNPLAYED_VAL
 
     def test_reinforce_dice(self, q_agent: DeepQYatzyPlayer):
         dice_buffer_batch = self.get_dice_buffer(32)
@@ -159,4 +152,4 @@ class TestQAgent:
 
         print(q_agent.scoreboard)
 
-        assert q_agent.UNPLAYED_VAL not in q_agent.scoreboard.values()
+        assert q_agent.UNPLAYED_VAL not in q_agent.scoreboard

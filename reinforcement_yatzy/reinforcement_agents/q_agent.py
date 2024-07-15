@@ -25,6 +25,7 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         self.dice_buffer_size = dice_buffer_size
         self.entry_buffer_size = entry_buffer_size
 
+        # TODO: Make into dataclasses
         self.dice_buffer: list[dict[str, Any]] = []
         self.entry_buffer: list[dict[str, Any]] = []
         self.target_change_interval = target_change_interval
@@ -62,6 +63,7 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         self.select_entry_model.load_state_dict(torch.load(entry_model_path))
         self.target_entry_model.load_state_dict(torch.load(entry_model_path))
 
+        # TODO: stupid API, just have two arguments with paths
     def save_network_params(self, model_paths: dict[str, str]) -> None:
         # TODO: Pickle instead
         torch.save(
@@ -71,15 +73,15 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
             self.select_entry_model.state_dict(), model_paths['entry model']
         )
 
-    def throw_dice(self, i_dice_throw: list[int]) -> None:
-        new_vals = np.random.randint(1, 7, [sum(i_dice_throw)])
+    def throw_dice(self, i_dice_throw: np.ndarray) -> None:
+        new_vals = np.random.randint(1, 7, [np.sum(i_dice_throw, dtype=int)])
         self.dice[i_dice_throw] = new_vals
 
     def select_dice_to_throw(self) -> list[int]:
         curr_dice = torch.tensor(self.dice, dtype=torch.float32).unsqueeze(0)
 
         curr_entries = torch.tensor(
-            list(self.scoreboard.values()), dtype=torch.float32
+            self.scoreboard, dtype=torch.float32
         ).unsqueeze(0)
 
         curr_throws_left = torch.tensor(
@@ -95,11 +97,11 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         dice_to_throw = mask_dice_throw.tolist()
         return dice_to_throw
 
-    def select_next_entry(self) -> str:
+    def select_next_entry(self) -> int:
         curr_dice = torch.tensor(self.dice, dtype=torch.float32).unsqueeze(0)
 
         curr_entries = torch.tensor(
-            list(self.scoreboard.values()), dtype=torch.float32
+            self.scoreboard, dtype=torch.float32
         ).unsqueeze(0)
 
         # NOTE: The entry selector could just get the current possible options,
@@ -108,10 +110,8 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
 
         # Use index to save time looking up names in all the following logic
         i_selected_entry = int(torch.argmax(entry_probs))
-        is_legal_move = (
-            np.array(list(self.scoreboard.values())) == self.UNPLAYED_VAL
-        )
-
+        is_legal_move = (self.scoreboard == self.UNPLAYED_VAL)
+        print(self.scoreboard)
         # If the agent wants to play an illegal move, i.e. select an already
         # occupied entry, take the _legal_ move with the highest prob from the model
         if not is_legal_move[i_selected_entry]:
@@ -120,7 +120,7 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
                 entry_probs, descending=True
             ).squeeze()
 
-            # Legal moves permuted so best moves are in front, masked to so only
+            # Legal moves permuted so best moves are in front, masked so only
             # legal moves are non-zero. To not ignore first entry (index 0)
             # offset all values by one
             offset_sorted_moves_legal_masked = (i_sorted_entry_probs.numpy(
@@ -131,10 +131,10 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
                 np.nonzero(offset_sorted_moves_legal_masked)
             ] - 1  # remove offset
 
-            i_selected_entry = int(sorted_legal_moves[0])
+            print(offset_sorted_moves_legal_masked)
+            i_selected_entry = sorted_legal_moves[0]
 
-        name_selected_entry = list(self.scoreboard.keys())[i_selected_entry]
-        return name_selected_entry
+        return i_selected_entry
 
     def reinforce(self) -> None:
         # NOTE: wait until both buffers are filled?
@@ -295,7 +295,7 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
                 'new_dice': torch.tensor(new_dice, dtype=torch.float32),
                 # TODO: embed scoreboard so non-numerics get better
                 # representation, and numericals get normalized
-                'scoreboard': torch.tensor(list(self.scoreboard.values()), dtype=torch.float32),
+                'scoreboard': torch.tensor(self.scoreboard, dtype=torch.float32),
                 'i_dice_to_throw': torch.tensor(i_dice_to_throw, dtype=torch.float32),
                 'throws_left': self.throws_left,
                 'reward': 0,
@@ -307,26 +307,25 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
             old_dice = self.dice.copy()
             self.throws_left -= 1
 
-        old_scoreboard = list(self.scoreboard.values())
-        next_entry = self.select_next_entry()
+        old_scoreboard = self.scoreboard
+        i_next_entry = self.select_next_entry()
         self.check_score_current_dice()
         self.get_curr_legal_options()
 
-        if next_entry in self.curr_legal_options:
-            current_point = self.curr_possible_scores[next_entry]
-            self.scoreboard[next_entry] = current_point
+        if i_next_entry in self.curr_legal_options:
+            current_point = self.curr_possible_scores[i_next_entry]
+            self.scoreboard[i_next_entry] = current_point
 
         else:
-            self.scoreboard[next_entry] = self.SCRATCH_VAL
+            self.scoreboard[i_next_entry] = self.SCRATCH_VAL
             current_point = self.PENALTY_SCRATCH
 
         # NOTE: Add the reward to the last dice_buffer element
         # Without this there would be no scores in the dice model
 
         self.dice_buffer[-1]['reward'] += current_point
-        new_scoreboard = list(self.scoreboard.values())
+        new_scoreboard = self.scoreboard
 
-        i_next_entry = list(self.scoreboard.keys()).index(next_entry)
         self.entry_buffer.append({
             'dice': torch.tensor(old_dice, dtype=torch.float32),
             'old_scoreboard': torch.tensor(old_scoreboard, dtype=torch.float32),

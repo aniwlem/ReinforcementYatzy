@@ -6,7 +6,7 @@ test/use the base class.
 
 import numpy as np
 
-from .base_player import ABCYatzyPlayer
+from reinforcement_yatzy.yatzy import ABCYatzyPlayer
 
 
 class TrainingYatzyPlayer(ABCYatzyPlayer):
