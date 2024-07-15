@@ -1,13 +1,32 @@
 import copy
+from dataclasses import dataclass
 from random import sample
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import torch
 from torch import nn
 
 from reinforcement_yatzy.yatzy.base_player import ABCYatzyPlayer
+
+
+@dataclass
+class DiceBufferElement:
+    old_dice: torch.Tensor
+    new_dice: torch.Tensor
+    scoreboard: torch.Tensor
+    i_dice_to_throw: torch.Tensor
+    throws_left: int
+    reward: float
+
+
+@dataclass
+class EntryBufferElement:
+    dice: torch.Tensor
+    old_scoreboard: torch.Tensor
+    new_scoreboard: torch.Tensor
+    i_next_entry: int
+    reward: float
 
 
 class DeepQYatzyPlayer(ABCYatzyPlayer):
@@ -26,8 +45,8 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         self.entry_buffer_size = entry_buffer_size
 
         # TODO: Make into dataclasses
-        self.dice_buffer: list[dict[str, Any]] = []
-        self.entry_buffer: list[dict[str, Any]] = []
+        self.dice_buffer: list[DiceBufferElement] = []
+        self.entry_buffer: list[EntryBufferElement] = []
         self.target_change_interval = target_change_interval
 
         self.loss = np.nan
@@ -77,7 +96,7 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         new_vals = np.random.randint(1, 7, [np.sum(i_dice_throw, dtype=int)])
         self.dice[i_dice_throw] = new_vals
 
-    def select_dice_to_throw(self) -> list[int]:
+    def select_dice_to_throw(self) -> np.ndarray:
         curr_dice = torch.tensor(self.dice, dtype=torch.float32).unsqueeze(0)
 
         curr_entries = torch.tensor(
@@ -94,7 +113,7 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
 
         # TODO: threshold should be hyperparam?
         mask_dice_throw = throw_probs.detach().squeeze().numpy() > 0.5
-        dice_to_throw = mask_dice_throw.tolist()
+        dice_to_throw = mask_dice_throw
         return dice_to_throw
 
     def select_next_entry(self) -> int:
@@ -154,30 +173,23 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
             entry_batch = [self.entry_buffer[i] for i in batch_indices]
             self._reinforce_entry_model(entry_batch)
 
-    def _reinforce_dice_model(self, dice_batch: list[dict[str, Any]]) -> None:
+    def _reinforce_dice_model(self, dice_batch: list[DiceBufferElement]) -> None:
         '''
         Does a single q-learning update of the dice_model
         '''
-        old_dices, new_dices, scoreboards, i_dice_to_throws, throws_lefts, rewards = [
-            [dict_[key] for dict_ in dice_batch]
-            for key in [
-                'old_dice',
-                'new_dice',
-                'scoreboard',
-                'i_dice_to_throw',
-                'throws_left',
-                'reward',
-            ]
-        ]
+        old_dices = torch.stack([elem.old_dice for elem in dice_batch])
+        new_dices = torch.stack([elem.new_dice for elem in dice_batch])
+        scoreboards = torch.stack([elem.scoreboard for elem in dice_batch])
+        i_dice_to_throws = torch.stack([
+            elem.i_dice_to_throw for elem in dice_batch
+        ])
 
-        # FIX: find less ugly solution
-        old_dices = torch.stack(old_dices)
-        new_dices = torch.stack(new_dices)
-        scoreboards = torch.stack(scoreboards)
-        i_dice_to_throws = torch.stack(i_dice_to_throws)
-
-        throws_lefts = torch.tensor(throws_lefts, dtype=torch.float32)
-        rewards = torch.tensor(rewards)
+        throws_lefts = torch.tensor(
+            [elem.throws_left for elem in dice_batch], dtype=torch.float32
+        )
+        rewards = torch.tensor(
+            [elem.reward for elem in dice_batch], dtype=torch.float32
+        )
 
         # Only backprop the dice that were thrown
         backprop_mask = torch.zeros(self.batch_size, self.NUM_DICE)
@@ -215,28 +227,25 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         self.loss.backward()
         self.dice_optimizer.step()
 
-    def _reinforce_entry_model(self, entry_batch: list[dict[str, Any]]):
+    def _reinforce_entry_model(self, entry_batch: list[EntryBufferElement]):
         '''
-        Does a single SARSA q-network update of the entry_model
+        Does a single q-learning q-network update of the entry_model
         '''
-        dices, old_scoreboards, new_scoreboards, i_next_entries, rewards = (
-            [dict_[key] for dict_ in entry_batch]
-            for key in [
-                'dice',
-                'old_scoreboard',
-                'new_scoreboard',
-                'i_next_entry',
-                'reward'
-            ]
+
+        dices = torch.stack([elem.dice for elem in entry_batch])
+        old_scoreboards = torch.stack([
+            elem.old_scoreboard for elem in entry_batch
+        ])
+        new_scoreboards = torch.stack([
+            elem.new_scoreboard for elem in entry_batch
+        ])
+
+        i_next_entries = torch.tensor(
+            [elem.i_next_entry for elem in entry_batch], dtype=torch.float32
         )
-
-        # FIX: ugly
-        dices = torch.stack(dices)
-        old_scoreboards = torch.stack(old_scoreboards)
-        new_scoreboards = torch.stack(new_scoreboards)
-
-        i_next_entries = torch.tensor(i_next_entries, dtype=torch.float32)
-        rewards = torch.tensor(rewards)
+        rewards = torch.tensor(
+            [elem.reward for elem in entry_batch], dtype=torch.float32
+        )
 
         backprop_mask = torch.zeros(self.batch_size, self.NUM_ENTRIES)
 
@@ -277,7 +286,7 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         entry_buffer.
         '''
         # The first throw is always of all dice
-        i_dice_to_throw = list(np.ones([self.NUM_DICE], dtype=int))
+        i_dice_to_throw = np.ones([self.NUM_DICE], dtype=int)
         self.throw_dice(i_dice_to_throw)
         old_dice = self.dice.copy()
         self.throws_left = 1
@@ -290,16 +299,18 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
             # the dice buffer is used to train the dice selector, and thus it
             # should try to find the dice to keep for the given dice,
             # scoreboard, and number of throws left.
-            self.dice_buffer.append({
-                'old_dice': torch.tensor(old_dice, dtype=torch.float32),
-                'new_dice': torch.tensor(new_dice, dtype=torch.float32),
+            self.dice_buffer.append(
                 # TODO: embed scoreboard so non-numerics get better
                 # representation, and numericals get normalized
-                'scoreboard': torch.tensor(self.scoreboard, dtype=torch.float32),
-                'i_dice_to_throw': torch.tensor(i_dice_to_throw, dtype=torch.float32),
-                'throws_left': self.throws_left,
-                'reward': 0,
-            })
+                DiceBufferElement(
+                    torch.tensor(old_dice, dtype=torch.float32),
+                    torch.tensor(new_dice, dtype=torch.float32),
+                    torch.tensor(self.scoreboard, dtype=torch.float32),
+                    torch.tensor(i_dice_to_throw, dtype=torch.float32),
+                    self.throws_left,
+                    0,
+                )
+            )
 
             if len(self.dice_buffer) > self.dice_buffer_size:
                 self.dice_buffer.pop(0)
@@ -322,17 +333,19 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
 
         # NOTE: Add the reward to the last dice_buffer element
         # Without this there would be no scores in the dice model
-
-        self.dice_buffer[-1]['reward'] += current_point
+        self.dice_buffer[-1].reward += current_point
         new_scoreboard = self.scoreboard
 
-        self.entry_buffer.append({
-            'dice': torch.tensor(old_dice, dtype=torch.float32),
-            'old_scoreboard': torch.tensor(old_scoreboard, dtype=torch.float32),
-            'new_scoreboard': torch.tensor(new_scoreboard, dtype=torch.float32),
-            'i_next_entry': i_next_entry,
-            'reward': current_point,
-        })
+        self.entry_buffer.append(
+            EntryBufferElement(
+                torch.tensor(old_dice, dtype=torch.float32),
+                torch.tensor(old_scoreboard, dtype=torch.float32),
+                torch.tensor(new_scoreboard, dtype=torch.float32),
+                i_next_entry,
+                current_point,
+            )
+
+        )
 
         if len(self.entry_buffer) > self.entry_buffer_size:
             self.dice_buffer.pop(0)

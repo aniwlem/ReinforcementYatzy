@@ -1,11 +1,10 @@
-from typing import Any
 import pytest
 
 import numpy as np
 import torch
 
 from reinforcement_yatzy.nn_models.basic_mlp import BaseLineDiceMLP, BaseLineEntryMLP
-from reinforcement_yatzy.reinforcement_agents.q_agent import DeepQYatzyPlayer
+from reinforcement_yatzy.reinforcement_agents.q_agent import DeepQYatzyPlayer, DiceBufferElement, EntryBufferElement
 from reinforcement_yatzy.yatzy.empty_training_player import TrainingYatzyPlayer
 
 
@@ -41,7 +40,7 @@ class TestQAgent:
     def get_dice_buffer(
         self,
         batch_size: int
-    ) -> list[dict[str, Any]]:
+    ) -> list[DiceBufferElement]:
         old_dices = np.random.randint(1, 7, size=[batch_size, self.n_dice])
         new_dices = np.random.randint(1, 7, size=[batch_size, self.n_dice])
         scoreboards = [
@@ -58,14 +57,15 @@ class TestQAgent:
             (1 - throws_lefts)
 
         dice_buffer_batch = [
-            {
-                'old_dice': torch.tensor(old_dice, dtype=torch.float32),
-                'new_dice': torch.tensor(new_dice, dtype=torch.float32),
-                'scoreboard': torch.tensor(scoreboard, dtype=torch.float32),
-                'i_dice_to_throw': torch.tensor(i_dice_to_throw),
-                'throws_left': torch.tensor(throws_left),
-                'reward': reward,
-            }
+            DiceBufferElement(
+                torch.tensor(old_dice, dtype=torch.float32),
+                torch.tensor(new_dice, dtype=torch.float32),
+                torch.tensor(scoreboard, dtype=torch.float32),
+                torch.tensor(i_dice_to_throw),
+                throws_left,
+                reward,
+            )
+
             for old_dice, new_dice, scoreboard, i_dice_to_throw, throws_left, reward in
             zip(old_dices, new_dices, scoreboards,
                 i_dice_to_throws, throws_lefts, rewards)
@@ -76,7 +76,7 @@ class TestQAgent:
     def get_entry_buffer(
         self,
         batch_size: int
-    ) -> list[dict[str, Any]]:
+    ) -> list[EntryBufferElement]:
         dices = np.random.randint(1, 7, size=[batch_size, self.n_dice])
         old_scoreboards = [
             TrainingYatzyPlayer.scoreboard.copy() for _ in range(batch_size)
@@ -89,13 +89,13 @@ class TestQAgent:
         rewards = np.random.randint(0, 30, size=[batch_size])
 
         entry_buffer_batch = [
-            {
-                'dice': torch.tensor(dice, dtype=torch.float32),
-                'old_scoreboard': torch.tensor(old_scoreboard, dtype=torch.float32),
-                'new_scoreboard': torch.tensor(new_scoreboard, dtype=torch.float32),
-                'i_next_entry': i_next_entry,
-                'reward': reward,
-            }
+            EntryBufferElement(
+                torch.tensor(dice, dtype=torch.float32),
+                torch.tensor(old_scoreboard, dtype=torch.float32),
+                torch.tensor(new_scoreboard, dtype=torch.float32),
+                i_next_entry,
+                reward,
+            )
             for dice, old_scoreboard, new_scoreboard, i_next_entry, reward in
             zip(dices, old_scoreboards, new_scoreboards, i_next_entrys, rewards)
         ]
@@ -105,7 +105,7 @@ class TestQAgent:
         q_agent.throw_dice(np.ones([q_agent.NUM_DICE], dtype=int))
         dice_throw_mask = q_agent.select_dice_to_throw()
 
-        assert isinstance(dice_throw_mask, list)
+        assert isinstance(dice_throw_mask, np.ndarray)
 
     def test_select_entry(self, q_agent: DeepQYatzyPlayer):
         q_agent.throw_dice(np.ones([q_agent.NUM_DICE], dtype=int))
