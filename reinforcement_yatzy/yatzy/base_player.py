@@ -27,28 +27,28 @@ class ABCYatzyPlayer(ABC):
     SCRATCH_VAL = -2
     BONUS_VAL = 50
     # TODO: turn dict into enum and numpy array
-    scoreboard = UNPLAYED_VAL * np.ones(len(Entries), dtype=int)
-    # entry_names = [
-    #     'Ones',
-    #     'Twos',
-    #     'Threes',
-    #     'Fours',
-    #     'Fives',
-    #     'Sixes',
-    #     'One Pair',
-    #     'Two Pairs',
-    #     'Three of a Kind',
-    #     'Four of a Kind',
-    #     'Small Straight',
-    #     'Big Straight',
-    #     'Full House',
-    #     'Chance',
-    #     'Yatzy',
-    # ]
+    scoreboard = UNPLAYED_VAL * np.ones([len(Entries)], dtype=int)
+    entry_names = [
+        'Ones',
+        'Twos',
+        'Threes',
+        'Fours',
+        'Fives',
+        'Sixes',
+        'One Pair',
+        'Two Pairs',
+        'Three of a Kind',
+        'Four of a Kind',
+        'Small Straight',
+        'Big Straight',
+        'Full House',
+        'Chance',
+        'Yatzy',
+    ]
     turns_left = 2
     curr_possible_scores = np.nan * np.ones_like(scoreboard)
     NUM_DICE = 5
-    NUM_ENTRIES = len(scoreboard)
+    NUM_ENTRIES = scoreboard.size
     NUMS = [
         Entries.ONES,
         Entries.TWOS,

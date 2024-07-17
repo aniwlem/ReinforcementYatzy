@@ -20,8 +20,8 @@ class TrainingYatzyPlayer(ABCYatzyPlayer):
     def select_dice_to_throw(self) -> list[int]:
         return [2, 3, 5, 7]
 
-    def select_next_entry(self) -> str:
-        return 'foo'
+    def select_next_entry(self) -> int:
+        return 69
 
     def play_turn(self) -> None:
         return None
