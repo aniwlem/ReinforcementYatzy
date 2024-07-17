@@ -1,8 +1,6 @@
 import pandas as pd
 import torch
-from torch.utils.data import ChunkDataReader
-
-ChunkDataReader
+from torch.utils.data import Dataset
 
 
 class ScoreboardDataset(Dataset):
