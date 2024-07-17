@@ -20,12 +20,13 @@ class ScoreboardGenerator:
         self.player = TrainingYatzyPlayer()
         self.save_path = save_path
 
-        self.FULL_HOUSE_SCORES = np.array(list(set([
-            2 * i + 3 * j for i, j in zip(range(1, 7), range(1, 7))
-        ])))
+        self.FULL_HOUSE_SCORES = np.array([
+            2 * i + 3 * j
+            for i in range(1, 7) for j in range(1, i)
+        ])
 
         self.NUM_HOUSE_SCORES = len(self.FULL_HOUSE_SCORES)
-        headers = list(self.player.scoreboard.keys())
+        headers = self.player.entry_names
 
         if not os.path.exists(save_path):
             df = pd.DataFrame(columns=headers)
@@ -44,7 +45,7 @@ class ScoreboardGenerator:
         '''
 
         '''
-        A scoreboard has the following number of options:
+        A filled in scoreboard has the following number of options:
         Upper section: 5 for each entry
 
         pair: 6
@@ -62,20 +63,21 @@ class ScoreboardGenerator:
         Total number of boards:
         (6 ** 5) * 6 * (6 * 5) * 6 * 6 * 1 * 1 * 6 * 5 * 30 * 1 \approx 10 ** 10
 
-        Would take up >> 10 GB of disk space, can't go through all of them.
-        Sample the scoreboards randomly.
+        Would take up >> 10 GB of disk space, not including partially filled or
+        with scratched values. Way too big to go through all of them, sample the
+        scoreboards randomly.
         '''
 
         assert n_unplayed + n_scratch <= self.player.NUM_ENTRIES, 'n_unplayed + n_scratch must be less than the scoreboard size'
 
         # Only create the valid options, the UNPLAYED_VAL and SCRATCH_VAL can be added afterwards.
         upper_randoms = np.tile(np.arange(1, 7), [batch_size, 1]) * \
-            np.random.randint(1, 7, [batch_size, 6])
+            np.random.randint(1, 6, [batch_size, 6])
         pair_randoms = 2 * np.random.randint(1, 7, [batch_size, 1])
         # scores are between 6 and 22, all even numbers possible
         two_pair_randoms = 2 * np.random.randint(3, 12, [batch_size, 1])
         three_of_a_kind_randoms = 3 * np.random.randint(1, 7, [batch_size, 1])
-        four_of_a_kind_randoms = 3 * np.random.randint(1, 7, [batch_size, 1])
+        four_of_a_kind_randoms = 4 * np.random.randint(1, 7, [batch_size, 1])
         small_straight_randoms = np.tile([15], [batch_size, 1])
         big_straight_randoms = np.tile([20], [batch_size, 1])
         # The possible scores for full house in non-contiguous, easiest way to
