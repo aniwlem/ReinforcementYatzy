@@ -20,7 +20,7 @@ class TestEntrySelector:
     @pytest.fixture
     def encoder(self):
         return ScoreboardEncoder(
-            input_dim=self.n_entries,
+            n_entries=self.n_entries,
             mlp_dims=[3, 5, 7],
             latent_dim=self.scoreboard_embed_dim
         )

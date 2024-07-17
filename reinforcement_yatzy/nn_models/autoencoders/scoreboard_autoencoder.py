@@ -7,16 +7,16 @@ from torch import nn
 class ScoreboardEncoder(nn.Module):
     def __init__(
         self,
-        input_dim: int = 5,
-        latent_dim: int = 8,
-        mlp_dims: list[int] = [69],
+        n_entries: int,
+        latent_dim: int,
+        mlp_dims: list[int],
     ) -> None:
         super().__init__()
         self.latent_dim = latent_dim
 
         mlp_layers = ([
             nn.Linear(
-                input_dim,
+                n_entries,
                 mlp_dims[0],
             ),
             nn.ReLU(),
@@ -42,9 +42,9 @@ class ScoreboardEncoder(nn.Module):
 class ScoreboardDecoder(nn.Module):
     def __init__(
         self,
-        input_dim: int = 5,
-        latent_dim: int = 8,
-        mlp_dims: list[int] = [69],
+        input_dim: int,
+        latent_dim: int,
+        mlp_dims: list[int],
     ) -> None:
         super().__init__()
 
@@ -75,9 +75,9 @@ class ScoreboardDecoder(nn.Module):
 class ScoreboardAutoencoder(nn.Module):
     def __init__(
         self,
-        input_dim: int = 5,
-        latent_dim: int = 8,
-        mlp_dims: list[int] = [69],
+        n_entries: int,
+        latent_dim: int,
+        mlp_dims: list[int],
         mlp_dims_decoder: list[int] | None = None,
     ) -> None:
         super().__init__()
@@ -85,13 +85,13 @@ class ScoreboardAutoencoder(nn.Module):
             mlp_dims_decoder = mlp_dims[::-1]
 
         self.encoder = ScoreboardEncoder(
-            input_dim,
+            n_entries,
             latent_dim,
             mlp_dims,
         )
 
         self.decoder = ScoreboardDecoder(
-            input_dim,
+            n_entries,
             latent_dim,
             mlp_dims_decoder,
         )

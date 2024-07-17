@@ -17,10 +17,8 @@ from reinforcement_yatzy.yatzy.empty_training_player import TrainingYatzyPlayer
 
 
 def setup_autoencoder(encoder_dims: list[int], latent_dim: int) -> ScoreboardAutoencoder:
-    input_dim = TrainingYatzyPlayer.NUM_ENTRIES
-
     autoencoder = ScoreboardAutoencoder(
-        input_dim=input_dim,
+        n_entries=TrainingYatzyPlayer.NUM_ENTRIES,
         mlp_dims=encoder_dims,
         latent_dim=latent_dim
     )
