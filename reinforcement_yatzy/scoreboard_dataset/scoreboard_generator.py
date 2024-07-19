@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from reinforcement_yatzy.yatzy.empty_training_player import TrainingYatzyPlayer
+from reinforcement_yatzy.yatzy.base_player import ABCYatzyPlayer
 
 
 class ScoreboardGenerator:
@@ -15,9 +15,8 @@ class ScoreboardGenerator:
 
     def __init__(
         self,
-        save_path: Path,
+        save_path: Path | None = None,
     ) -> None:
-        self.player = TrainingYatzyPlayer()
         self.save_path = save_path
 
         self.FULL_HOUSE_SCORES = np.array([
@@ -26,11 +25,12 @@ class ScoreboardGenerator:
         ])
 
         self.NUM_HOUSE_SCORES = len(self.FULL_HOUSE_SCORES)
-        headers = self.player.entry_names
+        headers = ABCYatzyPlayer.entry_names
 
-        if not os.path.exists(save_path):
-            df = pd.DataFrame(columns=headers)
-            df.to_csv(self.save_path, index=False)
+        if save_path is not None:
+            if not os.path.exists(save_path):
+                df = pd.DataFrame(columns=headers)
+                df.to_csv(self.save_path, index=False)
 
     def generate_scoreboards(
         self,
@@ -39,8 +39,8 @@ class ScoreboardGenerator:
         n_scratch: int
     ):
         '''
-        Generates batch_size random valid yatzy scoreboards with n_unplayed 
-        randomly selected entries with UNPLAYED_VAL and n_scratch randomly 
+        Generates batch_size random valid yatzy scoreboards with n_unplayed
+        randomly selected entries with UNPLAYED_VAL and n_scratch randomly
         selected entries with SCRATCH_VAL.
         '''
 
@@ -68,7 +68,7 @@ class ScoreboardGenerator:
         scoreboards randomly.
         '''
 
-        assert n_unplayed + n_scratch <= self.player.NUM_ENTRIES, 'n_unplayed + n_scratch must be less than the scoreboard size'
+        assert n_unplayed + n_scratch <= ABCYatzyPlayer.NUM_ENTRIES, 'n_unplayed + n_scratch must be less than the scoreboard size'
 
         # Only create the valid options, the UNPLAYED_VAL and SCRATCH_VAL can be added afterwards.
         upper_randoms = np.tile(np.arange(1, 7), [batch_size, 1]) * \
@@ -108,27 +108,45 @@ class ScoreboardGenerator:
 
         # TODO: add the bonus in somewhere
 
-        indices = np.arange(self.player.NUM_ENTRIES)
+        n_after_unplayed = ABCYatzyPlayer.NUM_ENTRIES - n_unplayed
+        single_unplayed_mask = np.concat([
+            np.ones([n_unplayed], dtype=bool),
+            np.zeros([n_after_unplayed], dtype=bool)
+        ])
 
-        unplayed_inds = np.array([
-            np.random.choice(indices, n_unplayed, replace=False)
+        unplayed_mask = np.array([
+            np.random.permutation(single_unplayed_mask)
             for _ in range(batch_size)
         ])
 
-        scratch_inds = np.array([
-            np.random.choice(indices, n_scratch, replace=False)
-            for _ in range(batch_size)
+        # Only scratch played values, to guarantee #scratched == n_scratch
+        # on each row
+        single_scratch_mask = np.concat([
+            np.ones([n_scratch], dtype=bool),
+            np.zeros([n_after_unplayed - n_scratch], dtype=bool)
         ])
 
-        scoreboards[unplayed_inds] = self.player.UNPLAYED_VAL
-        scoreboards[scratch_inds] = self.player.SCRATCH_VAL
+        # mask for the played part of a scoreboard
+        proto_scratch_mask = np.concat([
+            np.random.permutation(single_scratch_mask)
+            for _ in range(batch_size)
+        ], axis=0)
+
+        scratch_mask = np.zeros_like(unplayed_mask).astype(bool)
+        scratch_mask[~unplayed_mask] = proto_scratch_mask
+
+        scoreboards[unplayed_mask] = ABCYatzyPlayer.UNPLAYED_VAL
+        scoreboards[scratch_mask] = ABCYatzyPlayer.SCRATCH_VAL
 
         return pd.DataFrame(scoreboards).astype('int8')
 
-    def append_chunks(self, batch_size: int, n_chunks: int):
-        for i in range(n_chunks):
-            n_unplayed = np.random.randint(self.player.NUM_ENTRIES)
-            n_scratch = np.random.randint(self.player.NUM_ENTRIES - n_unplayed)
+    def append_chunks(self, batch_size: int, n_batches: int):
+        for _ in range(n_batches):
+            n_unplayed = np.random.randint(ABCYatzyPlayer.NUM_ENTRIES)
+            n_scratch = np.random.randint(
+                ABCYatzyPlayer.NUM_ENTRIES - n_unplayed
+            )
+
             new_data = self.generate_scoreboards(
                 batch_size,
                 n_unplayed,

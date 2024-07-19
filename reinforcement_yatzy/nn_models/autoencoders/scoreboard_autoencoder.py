@@ -42,7 +42,7 @@ class ScoreboardEncoder(nn.Module):
 class ScoreboardDecoder(nn.Module):
     def __init__(
         self,
-        input_dim: int,
+        n_entries: int,
         latent_dim: int,
         mlp_dims: list[int],
     ) -> None:
@@ -62,7 +62,7 @@ class ScoreboardDecoder(nn.Module):
                 nn.ReLU(),
             ])
 
-        mlp_layers.append(nn.Linear(mlp_dims[-1], input_dim))
+        mlp_layers.append(nn.Linear(mlp_dims[-1], n_entries))
 
         self.mlp_layers = nn.ModuleList(mlp_layers)
 
