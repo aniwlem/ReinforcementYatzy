@@ -20,6 +20,9 @@ class TestQAgent:
     @pytest.fixture
     def q_agent(self):
         return DeepQYatzyPlayer(
+            gamma_dice=0.01,
+            gamma_entries=0.01,
+            invalid_entry_factor=0.1,
             select_dice_model=BaseLineDiceMLP(
                 self.n_dice,
                 n_entries=self.n_entries,
@@ -58,10 +61,10 @@ class TestQAgent:
 
         dice_buffer_batch = [
             DiceBufferElement(
-                torch.tensor(old_dice, dtype=torch.float32),
-                torch.tensor(new_dice, dtype=torch.float32),
-                torch.tensor(scoreboard, dtype=torch.float32),
-                torch.tensor(i_dice_to_throw),
+                torch.from_numpy(old_dice),
+                torch.from_numpy(new_dice),
+                torch.from_numpy(scoreboard),
+                torch.from_numpy(i_dice_to_throw),
                 throws_left,
                 reward,
             )
@@ -109,7 +112,7 @@ class TestQAgent:
 
     def test_select_entry(self, q_agent: DeepQYatzyPlayer):
         q_agent.throw_dice(np.ones([q_agent.NUM_DICE], dtype=int))
-        q_agent.check_score_current_dice()
+        q_agent.check_possible_score_current_dice()
         next_entry = q_agent.select_next_entry()
         assert q_agent.scoreboard[next_entry] == q_agent.UNPLAYED_VAL
 

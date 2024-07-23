@@ -6,7 +6,7 @@ import torch
 
 from reinforcement_yatzy.nn_models.xvariant_mlp.base_models.dice_selection_pooling import DiceSelectionPoolingTypes
 from reinforcement_yatzy.nn_models.xvariant_mlp.selection_models.dice_selector import DiceSelector
-from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder
+from reinforcement_yatzy.nn_models.autoencoders.mlp_scoreboard_autoencoder import MLPScoreboardEncoder
 
 from reinforcement_yatzy.nn_models.xvariant_mlp.pool_type_enum import PoolType
 
@@ -19,14 +19,14 @@ class TestDiceSelector:
 
     @pytest.fixture
     def encoder(self):
-        return ScoreboardEncoder(
+        return MLPScoreboardEncoder(
             n_entries=self.n_entries,
             mlp_dims=[3, 5, 7],
             latent_dim=self.scoreboard_embed_dim
         )
 
     @pytest.fixture
-    def dice_selector(self, encoder: ScoreboardEncoder):
+    def dice_selector(self, encoder: MLPScoreboardEncoder):
         return DiceSelector(
             n_dice=self.n_dice,
             dice_embed_dim=self.dice_embed_dim,

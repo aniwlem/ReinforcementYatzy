@@ -22,7 +22,7 @@ class TestYatzyPlayerFunctions():
         player.scoreboard = np.ones_like(player.scoreboard)
         player.scoreboard[Entries.ONES] = player.UNPLAYED_VAL
 
-        player.check_score_current_dice()
+        player.check_possible_score_current_dice()
         player.get_curr_legal_options()
 
         assert np.all(player.curr_legal_options == 0)
@@ -35,7 +35,7 @@ class TestYatzyPlayerFunctions():
         player.scoreboard = np.ones_like(player.scoreboard)
         player.scoreboard[Entries.ONES] = player.UNPLAYED_VAL
 
-        player.check_score_current_dice()
+        player.check_possible_score_current_dice()
         player.get_curr_legal_options()
         player.get_scratch_options()
 

@@ -6,7 +6,7 @@ import torch
 
 from reinforcement_yatzy.nn_models.xvariant_mlp.base_models.invariant_mlp import InvariantPoolingParams
 from reinforcement_yatzy.nn_models.xvariant_mlp.selection_models.entry_selector import EntrySelector
-from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder
+from reinforcement_yatzy.nn_models.autoencoders.mlp_scoreboard_autoencoder import MLPScoreboardEncoder
 
 from reinforcement_yatzy.nn_models.xvariant_mlp.pool_type_enum import PoolType
 
@@ -19,14 +19,14 @@ class TestEntrySelector:
 
     @pytest.fixture
     def encoder(self):
-        return ScoreboardEncoder(
+        return MLPScoreboardEncoder(
             n_entries=self.n_entries,
             mlp_dims=[3, 5, 7],
             latent_dim=self.scoreboard_embed_dim
         )
 
     @pytest.fixture
-    def entry_selector(self, encoder: ScoreboardEncoder):
+    def entry_selector(self, encoder: MLPScoreboardEncoder):
         return EntrySelector(
             n_dice=self.n_dice,
             n_entries=self.n_entries,
