@@ -4,7 +4,7 @@ from torch import nn
 
 from reinforcement_yatzy.nn_models.xvariant_mlp.base_models.dice_selection_pooling import DiceSelectionPooling
 from reinforcement_yatzy.nn_models.xvariant_mlp.base_models.equivariant_mlp import EquivariantMLP
-from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder
+from reinforcement_yatzy.nn_models.autoencoders import GeneralEncoder
 
 from reinforcement_yatzy.nn_models.xvariant_mlp.pool_type_enum import PoolType
 from reinforcement_yatzy.nn_models.xvariant_mlp.base_models.dice_selection_pooling import DiceSelectionPoolingTypes
@@ -16,9 +16,12 @@ class DiceSelector(nn.Module):
         n_dice: int,
         dice_embed_dim: int,
         mlp_channels: list[int],
-        mlp_pool_type: PoolType,
-        selection_pooling_types: DiceSelectionPoolingTypes,
-        scoreboard_encoder: ScoreboardEncoder,
+        scoreboard_encoder: GeneralEncoder,  # NOTE: must be pre-trained
+        mlp_pool_type: PoolType = PoolType.AVG,
+        selection_pooling_types: DiceSelectionPoolingTypes = DiceSelectionPoolingTypes(
+            channel_pooling=PoolType.AVG,
+            embed_pooling=PoolType.AVG,
+        ),
 
     ) -> None:
         super().__init__()

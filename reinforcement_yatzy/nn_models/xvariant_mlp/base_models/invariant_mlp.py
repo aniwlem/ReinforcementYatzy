@@ -30,8 +30,8 @@ class InvariantPooling(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.embed_pooling = embed_pooling.layer(embed_dim)
-        self.elem_pooling = elem_pooling.layer(seq_len)
+        self.embed_pooling_layer = embed_pooling.layer(embed_dim)
+        self.elem_pooling_layer = elem_pooling.layer(seq_len)
 
     def forward(self, batch: torch.Tensor) -> torch.Tensor:
         '''
@@ -49,12 +49,12 @@ class InvariantPooling(nn.Module):
         # Pool away embedding dimension
         embed_batch = batch.reshape(
             [batch_size * n_channels, n_dice, embed_dim])
-        embed_pooled = self.embed_pooling(embed_batch).reshape([
+        embed_pooled = self.embed_pooling_layer(embed_batch).reshape([
             batch_size, n_channels, n_dice
         ])
 
         # Pool away element dimension
-        elem_pooled = self.elem_pooling(embed_pooled).squeeze(-1)
+        elem_pooled = self.elem_pooling_layer(embed_pooled).squeeze(-1)
 
         return elem_pooled
 
@@ -68,7 +68,7 @@ class InvariantMLP(EquivariantMLP):
     The model is in essense a equivariant model with added pooling layers at the
     end. A single invariant layer is uninsteresting since any following layers 
     will preserve invariance, and thus could be anything, and a single layer 
-    most likely isn't enoug for a meaningful transformation.
+    most likely isn't enough for a meaningful transformation.
     '''
 
     def __init__(
@@ -114,5 +114,4 @@ class InvariantMLP(EquivariantMLP):
             equivariant_output.unsqueeze(0)
 
         invariant_output = self.invarintifier(equivariant_output)
-        print(invariant_output.shape)
         return invariant_output

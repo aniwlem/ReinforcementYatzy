@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from reinforcement_yatzy.nn_models.autoencoders.scoreboard_autoencoder import ScoreboardEncoder
+from reinforcement_yatzy.nn_models.autoencoders.mlp_scoreboard_autoencoder import MLPScoreboardEncoder
 from reinforcement_yatzy.nn_models.xvariant_mlp.base_models.invariant_mlp import InvariantMLP, InvariantPoolingParams
 from reinforcement_yatzy.nn_models.xvariant_mlp.pool_type_enum import PoolType
 
@@ -12,10 +12,14 @@ class EntrySelector(nn.Module):
         n_dice: int,
         n_entries: int,
         dice_pre_mlp_channels: list[int],
-        dice_pre_mlp_pool_type: PoolType,
-        dice_invarintifier_pool_types: InvariantPoolingParams,
-        scoreboard_encoder: ScoreboardEncoder,
+        scoreboard_encoder: MLPScoreboardEncoder,
         mlp_dims: list[int],
+        dice_pre_mlp_pool_type: PoolType = PoolType.AVG,
+        dice_invarintifier_pool_types: InvariantPoolingParams =
+            InvariantPoolingParams(
+                PoolType.AVG,
+                PoolType.AVG,
+        ),
     ) -> None:
         super().__init__()
 
@@ -71,7 +75,6 @@ class EntrySelector(nn.Module):
 
         # the encoder will add channel and embed dims itself
         scoreboard_embeddings = self.scoreboard_encoder(scoreboards)
-        print(scoreboard_embeddings.shape)
         batch = torch.concat([
             invariant_dice,
             scoreboard_embeddings,
