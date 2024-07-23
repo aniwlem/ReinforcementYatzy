@@ -3,13 +3,16 @@ from pathlib import Path
 import torch
 from torch import nn
 
+from reinforcement_yatzy.nn_models.autoencoders.general_encoder import GeneralEncoder
 
-class ScoreboardEncoder(nn.Module):
+
+class MLPScoreboardEncoder(GeneralEncoder):
     def __init__(
         self,
         n_entries: int,
         latent_dim: int,
         mlp_dims: list[int],
+        p_dropout: float,
     ) -> None:
         super().__init__()
         self.latent_dim = latent_dim
@@ -20,6 +23,7 @@ class ScoreboardEncoder(nn.Module):
                 mlp_dims[0],
             ),
             nn.ReLU(),
+            nn.Dropout(p=p_dropout),
         ])
 
         # actual mlp
@@ -27,6 +31,7 @@ class ScoreboardEncoder(nn.Module):
             mlp_layers.extend([
                 nn.Linear(mlp_dims[i], mlp_dims[i + 1]),
                 nn.ReLU(),
+                nn.Dropout(p=p_dropout)
             ])
 
         mlp_layers.append(nn.Linear(mlp_dims[-1], latent_dim))
@@ -39,12 +44,13 @@ class ScoreboardEncoder(nn.Module):
         return batch
 
 
-class ScoreboardDecoder(nn.Module):
+class MLPScoreboardDecoder(nn.Module):
     def __init__(
         self,
         n_entries: int,
         latent_dim: int,
         mlp_dims: list[int],
+        p_dropout: float,
     ) -> None:
         super().__init__()
 
@@ -54,12 +60,14 @@ class ScoreboardDecoder(nn.Module):
                 mlp_dims[0],
             ),
             nn.ReLU(),
+            nn.Dropout(p=p_dropout),
         ])
 
         for i in range(len(mlp_dims) - 1):
             mlp_layers.extend([
                 nn.Linear(mlp_dims[i], mlp_dims[i + 1]),
                 nn.ReLU(),
+                nn.Dropout(p=p_dropout),
             ])
 
         mlp_layers.append(nn.Linear(mlp_dims[-1], n_entries))
@@ -72,28 +80,31 @@ class ScoreboardDecoder(nn.Module):
         return batch
 
 
-class ScoreboardAutoencoder(nn.Module):
+class MLPScoreboardAutoencoder(nn.Module):
     def __init__(
         self,
         n_entries: int,
         latent_dim: int,
         mlp_dims: list[int],
+        p_dropout: float,
         mlp_dims_decoder: list[int] | None = None,
     ) -> None:
         super().__init__()
         if mlp_dims_decoder is None:
             mlp_dims_decoder = mlp_dims[::-1]
 
-        self.encoder = ScoreboardEncoder(
+        self.encoder = MLPScoreboardEncoder(
             n_entries,
             latent_dim,
             mlp_dims,
+            p_dropout,
         )
 
-        self.decoder = ScoreboardDecoder(
+        self.decoder = MLPScoreboardDecoder(
             n_entries,
             latent_dim,
             mlp_dims_decoder,
+            p_dropout,
         )
 
     def load_encoder_decoder_state_dicts(
