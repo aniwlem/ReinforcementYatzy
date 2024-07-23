@@ -30,8 +30,19 @@ class EntryBufferElement:
 
 
 class DeepQYatzyPlayer(ABCYatzyPlayer):
+    '''
+    Epsilon-greedy deep-Q agent (Q-learning, not SARSA) yatzy player
+    '''
+
     def __init__(
         self,
+        # NOTE: epsilon(epoch) = e**(-gamma * epoch)
+        # half life of n games: log(2) / n = 0.69 / n
+        gamma_dice: float,
+        gamma_entries: float,
+        # How much more likely the model is to select entries with a score
+        # rather than scratching. Should be close to 0
+        invalid_entry_factor: float,
         select_dice_model: nn.Module,
         select_entry_model: nn.Module,
         dice_buffer_size: int,
@@ -41,10 +52,17 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         penalty_scratch: float,
     ):
         super().__init__()
+        self.epsilon_dice = 1
+        self.epsilon_entries = 1
+
+        self.gamma_dice = gamma_dice
+        self.gamma_entries = gamma_entries
+
+        self.invalid_entry_factor = invalid_entry_factor
+
         self.dice_buffer_size = dice_buffer_size
         self.entry_buffer_size = entry_buffer_size
 
-        # TODO: Make into dataclasses
         self.dice_buffer: list[DiceBufferElement] = []
         self.entry_buffer: list[EntryBufferElement] = []
         self.target_change_interval = target_change_interval
@@ -67,6 +85,7 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
             lr=1e-3
         )
 
+        # want the model to be very sure if it should or shouldn't do something
         self.dice_criterion = nn.CrossEntropyLoss()
         self.entry_criterion = nn.CrossEntropyLoss()
 
@@ -97,61 +116,81 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         self.dice[i_dice_throw] = new_vals
 
     def select_dice_to_throw(self) -> np.ndarray:
-        curr_dice = torch.tensor(self.dice, dtype=torch.float32).unsqueeze(0)
+        if np.random.random() < self.epsilon_dice:
+            dice_to_throw = np.random.choice([False, True], [5])
+        else:
+            curr_dice = torch.tensor(
+                self.dice, dtype=torch.float32).unsqueeze(0)
 
-        curr_entries = torch.tensor(
-            self.scoreboard, dtype=torch.float32
-        ).unsqueeze(0)
+            curr_entries = torch.tensor(
+                self.scoreboard, dtype=torch.float32
+            ).unsqueeze(0)
 
-        curr_throws_left = torch.tensor(
-            self.throws_left, dtype=torch.float32
-        ).unsqueeze(0)
+            curr_throws_left = torch.tensor(
+                self.throws_left, dtype=torch.float32
+            ).unsqueeze(0)
 
-        throw_probs = self.select_dice_model(
-            curr_dice, curr_entries, curr_throws_left,
-        )
+            throw_probs = self.select_dice_model(
+                curr_dice, curr_entries, curr_throws_left,
+            )
 
-        # TODO: threshold should be hyperparam?
-        mask_dice_throw = throw_probs.detach().squeeze().numpy() > 0.5
-        dice_to_throw = mask_dice_throw
+            # TODO: threshold should be hyperparam?
+            mask_dice_throw = throw_probs.detach().squeeze().numpy() > 0.5
+            dice_to_throw = mask_dice_throw
+
         return dice_to_throw
 
     def select_next_entry(self) -> int:
-        curr_dice = torch.tensor(self.dice, dtype=torch.float32).unsqueeze(0)
+        if np.random.random() < self.epsilon_entries:
+            is_legal_move = (self.scoreboard == self.UNPLAYED_VAL).astype(int)
+            i_legal_moves = np.nonzero(is_legal_move)[0]
 
-        curr_entries = torch.tensor(
-            self.scoreboard, dtype=torch.float32
-        ).unsqueeze(0)
+            # tweak so non-scratch moves are more likely
+            self.check_possible_score_current_dice()
+            self.get_curr_legal_options()
 
-        # NOTE: The entry selector could just get the current possible options,
-        # instead of the dice
-        entry_probs = self.select_entry_model(curr_dice, curr_entries)
+            move_is_scratch = self.curr_legal_options[is_legal_move]
+            probs = np.ones([self.NUM_ENTRIES])
+            probs[move_is_scratch] *= self.invalid_entry_factor
+            probs = probs[i_legal_moves]
+            probs /= np.sum(probs)
 
-        # Use index to save time looking up names in all the following logic
-        i_selected_entry = int(torch.argmax(entry_probs))
-        is_legal_move = (self.scoreboard == self.UNPLAYED_VAL)
-        print(self.scoreboard)
-        # If the agent wants to play an illegal move, i.e. select an already
-        # occupied entry, take the _legal_ move with the highest prob from the model
-        if not is_legal_move[i_selected_entry]:
-            # Indices sorted after to how good the agent think it is
-            i_sorted_entry_probs = torch.argsort(
-                entry_probs, descending=True
-            ).squeeze()
+            i_selected_entry = np.random.choice(i_legal_moves, p=probs)
+        else:
+            curr_dice = torch.tensor(
+                self.dice, dtype=torch.float32).unsqueeze(0)
 
-            # Legal moves permuted so best moves are in front, masked so only
-            # legal moves are non-zero. To not ignore first entry (index 0)
-            # offset all values by one
-            offset_sorted_moves_legal_masked = (i_sorted_entry_probs.numpy(
-            ) + 1) * is_legal_move[i_sorted_entry_probs.tolist()]
+            curr_entries = torch.tensor(
+                self.scoreboard, dtype=torch.float32
+            ).unsqueeze(0)
 
-            # Best move is the one the network likes the most, that is legal
-            sorted_legal_moves = offset_sorted_moves_legal_masked[
-                np.nonzero(offset_sorted_moves_legal_masked)
-            ] - 1  # remove offset
+            # NOTE: The entry selector could just get the current possible options,
+            # instead of the dice
+            entry_probs = self.select_entry_model(curr_dice, curr_entries)
 
-            print(offset_sorted_moves_legal_masked)
-            i_selected_entry = sorted_legal_moves[0]
+            # Use index to save time looking up names in all the following logic
+            i_selected_entry = int(torch.argmax(entry_probs))
+            is_legal_move = (self.scoreboard == self.UNPLAYED_VAL)
+            # If the agent wants to play an illegal move, i.e. select an already
+            # occupied entry, take the _legal_ move with the highest prob from the model
+            if not is_legal_move[i_selected_entry]:
+                # Indices sorted after to how good the agent think it is
+                i_sorted_entry_probs = torch.argsort(
+                    entry_probs, descending=True
+                ).squeeze()
+
+                # Legal moves permuted so best moves are in front, masked so only
+                # legal moves are non-zero. To not ignore first entry (index 0)
+                # offset all values by one
+                offset_sorted_moves_legal_masked = (i_sorted_entry_probs.numpy(
+                ) + 1) * is_legal_move[i_sorted_entry_probs.tolist()]
+
+                # Best move is the one the network likes the most, that is legal
+                sorted_legal_moves = offset_sorted_moves_legal_masked[
+                    np.nonzero(offset_sorted_moves_legal_masked)
+                ] - 1  # remove offset
+
+                i_selected_entry = sorted_legal_moves[0]
 
         return i_selected_entry
 
@@ -285,6 +324,9 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
         states, for each throw into dice_buffer, and for the last throw into the 
         entry_buffer.
         '''
+        self.epsilon_dice = np.exp(- self.gamma_dice * self.epoch)
+        self.epsilon_entries = np.exp(- self.gamma_entries * self.epoch)
+
         # The first throw is always of all dice
         i_dice_to_throw = np.ones([self.NUM_DICE], dtype=int)
         self.throw_dice(i_dice_to_throw)
@@ -320,7 +362,7 @@ class DeepQYatzyPlayer(ABCYatzyPlayer):
 
         old_scoreboard = self.scoreboard
         i_next_entry = self.select_next_entry()
-        self.check_score_current_dice()
+        self.check_possible_score_current_dice()
         self.get_curr_legal_options()
 
         if i_next_entry in self.curr_legal_options:
