@@ -74,7 +74,7 @@ class ABCYatzyPlayer(ABC):
     def select_next_entry(self) -> int:
         ...
 
-    def check_score_current_dice(self) -> np.ndarray:
+    def check_possible_score_current_dice(self) -> np.ndarray:
         '''
         Calculates the point for each scoreboard entry for the current dice.
         Illegal moves get a score of self.SCRATCH_VAL
@@ -152,7 +152,6 @@ class ABCYatzyPlayer(ABC):
         # Yatzy and straights
         # These are mutually exclusive so no need to check second if first is true
         if raw_counts.size == 1:
-            print()
             curr_possible_scores[Entries.YATZY] = 50
 
         elif raw_counts.size == 5:
@@ -191,10 +190,11 @@ class ABCYatzyPlayer(ABC):
         return self.bonus
 
     def get_upper_score(self) -> tuple[int, bool]:
+        upper_section = self.scoreboard[:Entries.ONE_PAIR]
         upper_score = np.sum(
-            self.scoreboard[
-                (self.scoreboard != self.SCRATCH_VAL) *
-                (self.scoreboard != self.UNPLAYED_VAL)
+            upper_section[
+                (upper_section != self.SCRATCH_VAL) *
+                (upper_section != self.UNPLAYED_VAL)
             ]
         )
         upper_is_full = self.UNPLAYED_VAL not in self.scoreboard[self.NUMS]
@@ -203,11 +203,18 @@ class ABCYatzyPlayer(ABC):
     # TODO: this gives non-scratching scores? i.e. this does not include entries
     # that one can scratch? YES
     def get_curr_legal_options(self) -> np.ndarray:
+        '''
+        Gives a mask of which of the choosable scores will give points, i.e. will
+        not be scratched if chosen.
+        '''
         self.curr_legal_options = (
             self.curr_possible_scores != self.SCRATCH_VAL)
         return self.curr_legal_options
 
     def get_scratch_options(self) -> np.ndarray:
+        '''
+        Returns mask of which entries can be scratched
+        '''
         self.scratch_options = (self.scoreboard == self.UNPLAYED_VAL) *\
             (self.curr_possible_scores == self.SCRATCH_VAL)
         return self.scratch_options
