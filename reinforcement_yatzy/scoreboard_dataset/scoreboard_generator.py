@@ -9,8 +9,9 @@ from reinforcement_yatzy.yatzy.base_player import ABCYatzyPlayer
 
 class ScoreboardGenerator:
     '''
-    Plays a sequence of games, saving each intermediate scoreboard in the games
-    to a buffer. Saves the game buffer to csv.
+    Generates a dataset of valid yatzy scoreboards, either according to some 
+    constraints w.r.t. number of unplayed values and scratched values, or following
+    the distribution of a randomly played game.
     '''
 
     def __init__(
@@ -25,6 +26,48 @@ class ScoreboardGenerator:
         ])
 
         self.NUM_HOUSE_SCORES = len(self.FULL_HOUSE_SCORES)
+
+        # When selecting which entries to unplay or scratch, do it proportional
+        # to the to the number of possible combinations for that entry. All numbers
+        # were calculated by brute force, to assure no combinatorial mistakes
+        # were made
+        #
+        # Ones - Sixes: 4651 for every entry
+        #
+        # One Pair: 1526 * 6 = 9165
+        #
+        # Two Pairs: 140 * 6 * 5 = 4200
+        #
+        # Three of a Kind: 276 * 6 = 1656
+        #
+        # Four of a kind: 26 * 6 = 156
+        #
+        # Small Straight: 120
+        #
+        # Big Straight: 120
+        #
+        # Full House: 10 * 6 * 5 = 300
+        #
+        # Chance: 6 ** 5 = 7776
+        #
+        # Yatzy: 1 * 6
+
+        self.probs = np.array([
+            4651, 4651, 4651, 4651, 4651, 4651,
+            9165,
+            4200,
+            1656,
+            156,
+            120,
+            120,
+            300,
+            7776,
+            6
+        ])
+        # make the tails less fat
+        self.probs = np.sqrt(self.probs)
+        self.probs /= np.sum(self.probs)
+
         headers = ABCYatzyPlayer.entry_names
 
         if save_path is not None:
@@ -91,18 +134,19 @@ class ScoreboardGenerator:
         chance = np.random.randint(1, 30, [batch_size, 1])
         yatzy_random = np.tile([50], [batch_size, 1])
 
-        scoreboards = np.concat([
-            upper_randoms,
-            pair_randoms,
-            two_pair_randoms,
-            three_of_a_kind_randoms,
-            four_of_a_kind_randoms,
-            small_straight_randoms,
-            big_straight_randoms,
-            full_house_randoms,
-            chance,
-            yatzy_random,
-        ],
+        scoreboards = np.concat(
+            [
+                upper_randoms,
+                pair_randoms,
+                two_pair_randoms,
+                three_of_a_kind_randoms,
+                four_of_a_kind_randoms,
+                small_straight_randoms,
+                big_straight_randoms,
+                full_house_randoms,
+                chance,
+                yatzy_random,
+            ],
             axis=1
         )
 
@@ -119,7 +163,7 @@ class ScoreboardGenerator:
             for _ in range(batch_size)
         ])
 
-        # Only scratch played values, to guarantee #scratched == n_scratch
+        # Only scratch played values, to guarantee #unplayed == n_unplayed
         # on each row
         single_scratch_mask = np.concat([
             np.ones([n_scratch], dtype=bool),
